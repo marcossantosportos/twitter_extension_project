@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Twitter Sentiment</title>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      width: 320px;
+      max-width: 320px;
+      padding: 12px;
+      background-color: #000000;
+      color: #ffffff;
+      border-radius: 12px;
+      border: 1px solid #2a2a2a;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    }
+    h3 {
+      margin: 0 0 10px 0;
+      font-size: 18px;
+      text-align: center;
+      color: #ffffff;
+    }
+    /* The button style can be removed if you want to clean up the CSS */
+    #result {
+      margin-top: 12px;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    h4 {
+      margin: 8px 0 5px 0;
+      color: #d9534f;
+    }
+    .copy-btn {
+      background-color: #1da1f2;
+      color: #ffffff;
+      border: none;
+      padding: 4px 8px;
+      margin-left: 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: bold;
+      transition: background-color 0.2s;
+    }
+    .copy-btn:hover {
+      background-color: #1a8cd8;
+    }
+    .copy-btn:active {
+      background-color: #1773b3;
+    }
+    .copy-btn.copied {
+      background-color: #28a745;
+    }
+    .info-row {
+      margin: 8px 0;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .info-row b {
+      margin-right: 4px;
+    }
+    .tweet-preview {
+      margin-top: 12px;
+      padding: 10px;
+      background-color: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      border-left: 3px solid #1da1f2;
+      font-size: 13px;
+      line-height: 1.5;
+      max-height: 150px;
+      overflow-y: auto;
+      word-wrap: break-word;
+    }
+    .tweet-preview-header {
+      font-size: 11px;
+      color: #888;
+      margin-bottom: 6px;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+    .tweet-preview-text {
+      color: #ffffff;
+      white-space: pre-wrap;
+    }
+    .song-btn {
+      background-color: #3cb371;
+      color: #ffffff;
+      border: none;
+      padding: 8px 10px;
+      margin-top: 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: bold;
+      width: 100%;
+      transition: background-color 0.2s;
+    }
+    .song-btn:hover {
+      background-color: #35a066;
+    }
+    .song-btn:active {
+      background-color: #2e8b57;
+    }
+  </style>
+</head>
+<body>
+  <h3>Sentiment Tool</h3>
+  <div id="result">Loading analysis...</div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

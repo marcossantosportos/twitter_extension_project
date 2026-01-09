@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "Twitter Sentiment Extension",
+  "version": "1.0",
+  "description": "Analyzes tweets and provides sentiment feedback.",
+  "permissions": [
+    "storage",
+    "scripting",
+    "activeTab",
+    "tabs",
+    "geolocation"
+  ],
+  "host_permissions": [
+    "http://localhost:5000/*",
+    "https://api.bigdatacloud.net/*",
+    "https://ipapi.co/*",
+    "https://twitter.com/*",
+    "https://*.twitter.com/*",
+    "https://x.com/*",
+    "https://*.x.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://twitter.com/*", "*://x.com/*"],
+      "js": ["content.js"]
+    }
+  ]
+}
