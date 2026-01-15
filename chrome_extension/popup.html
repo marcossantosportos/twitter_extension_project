@@ -104,11 +104,93 @@
     .song-btn:active {
       background-color: #2e8b57;
     }
+    .call-btn {
+      background-color: #dc3545;
+      color: #ffffff;
+      border: none;
+      padding: 8px 10px;
+      margin-top: 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: bold;
+      width: 100%;
+      transition: background-color 0.2s;
+    }
+    .call-btn:hover {
+      background-color: #c82333;
+    }
+    .call-btn:active {
+      background-color: #bd2130;
+    }
+    #chatbot-section {
+      margin-top: 12px;
+      padding: 12px;
+      background-color: #1a1a1a;
+      border-radius: 8px;
+      border: 1px solid #2a2a2a;
+    }
+    .chatbot-message {
+      margin-bottom: 10px;
+      font-size: 13px;
+      color: #ffffff;
+      line-height: 1.5;
+    }
+    .chatbot-buttons {
+      display: flex;
+      gap: 8px;
+    }
+    .chatbot-btn {
+      flex: 1;
+      border: none;
+      padding: 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 12px;
+      transition: background-color 0.2s;
+    }
+    .chatbot-btn-yes {
+      background-color: #28a745;
+      color: white;
+    }
+    .chatbot-btn-yes:hover {
+      background-color: #218838;
+    }
+    .chatbot-btn-no {
+      background-color: #6c757d;
+      color: white;
+    }
+    .chatbot-btn-no:hover {
+      background-color: #5a6268;
+    }
+    #music-player {
+      display: none;
+      margin-top: 12px;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    #youtube-player {
+      width: 100%;
+      height: 200px;
+      border: none;
+    }
   </style>
 </head>
 <body>
   <h3>Sentiment Tool</h3>
   <div id="result">Loading analysis...</div>
+  <div id="music-player">
+    <iframe 
+      id="youtube-player"
+      width="100%" 
+      height="200" 
+      src="" 
+      frameborder="0" 
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+      allowfullscreen>
+    </iframe>
+  </div>
 
   <script src="popup.js"></script>
 </body>

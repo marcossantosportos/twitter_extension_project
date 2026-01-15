@@ -223,6 +223,72 @@ async function analyzeOnLoad() {
       }, 1500);
     };
 
+    // Chatbot prompt function
+    function showChatbotPrompt(resultDiv) {
+      const chatbotHTML = `
+        <div id="chatbot-section">
+          <div class="chatbot-message">
+            💬 <strong>Support Assistant:</strong> I noticed this thread is getting a bit heavy. Want to take a 2-minute breather with some calm music?
+          </div>
+          <div class="chatbot-buttons">
+            <button id="chatbot-yes" class="chatbot-btn chatbot-btn-yes">Yes</button>
+            <button id="chatbot-no" class="chatbot-btn chatbot-btn-no">No, thanks</button>
+          </div>
+        </div>
+      `;
+      
+      resultDiv.insertAdjacentHTML('beforeend', chatbotHTML);
+      
+      // Handle Yes button
+      document.getElementById('chatbot-yes').addEventListener('click', () => {
+        playCalmingMusic();
+        const chatbotSection = document.getElementById('chatbot-section');
+        chatbotSection.innerHTML = `
+          <div style="color: #28a745; font-size: 13px; text-align: center; padding: 8px;">
+            ✓ Opening calming music for you...
+          </div>
+        `;
+      });
+      
+      // Handle No button
+      document.getElementById('chatbot-no').addEventListener('click', () => {
+        const chatbotSection = document.getElementById('chatbot-section');
+        chatbotSection.style.display = 'none';
+      });
+    }
+
+    // Play calming music using YouTube embed
+    function playCalmingMusic() {
+      const musicPlayer = document.getElementById('music-player');
+      const youtubePlayer = document.getElementById('youtube-player');
+      
+      if (!musicPlayer || !youtubePlayer) return;
+      
+      // Use a calming YouTube video (Lofi Hip Hop - 24/7 live stream)
+      const videoId = "jfKfPfyJRdk"; // Lofi Hip Hop Radio
+      youtubePlayer.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`;
+      musicPlayer.style.display = 'block';
+      
+      // Scroll to music player
+      musicPlayer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // Call close one function
+    function callCloseOne() {
+      const emergencyNumber = "8208022049";
+      
+      // Try tel: protocol
+      window.location.href = `tel:${emergencyNumber}`;
+      
+      // Fallback: If tel: doesn't work (desktop), show alert after delay
+      setTimeout(() => {
+        // Check if we're still on the same page (tel: didn't navigate away)
+        if (document.getElementById('result')) {
+          alert(`If the call didn't start, please dial: ${emergencyNumber}`);
+        }
+      }, 1000);
+    }
+
     if (!clf || clf.label !== true) {
       // Show debug info if available
       const resultDiv = document.getElementById("result");
@@ -282,6 +348,7 @@ async function analyzeOnLoad() {
             <div class="tweet-preview-text">${escapedTweet}</div>
             <button class="copy-btn" data-copy-text="${escapedTweetForCopy}" style="margin-top: 8px;">Copy Tweet</button>
           </div>
+          <button class="call-btn" id="call-close-one">📞 Call Close One</button>
           <button class="song-btn" id="play-song-btn">Play an upbeat song</button>
         `;
         
@@ -293,11 +360,22 @@ async function analyzeOnLoad() {
           });
         });
 
+        // Call Close One button handler
+        const callBtn = resultDiv.querySelector('#call-close-one');
+        if (callBtn) {
+          callBtn.addEventListener('click', callCloseOne);
+        }
+
         // Song button handler
         const songBtn = resultDiv.querySelector('#play-song-btn');
         if (songBtn) {
           songBtn.addEventListener('click', () => playRandomSong(songBtn));
         }
+
+        // Show chatbot after 2.5 second delay
+        setTimeout(() => {
+          showChatbotPrompt(resultDiv);
+        }, 2500);
       },
       async (err) => { // This is the error callback for when geolocation fails or is denied
         console.error("Geolocation error:", err);
@@ -327,6 +405,7 @@ async function analyzeOnLoad() {
             <div class="tweet-preview-text">${escapedTweet}</div>
             <button class="copy-btn" data-copy-text="${escapedTweetForCopy}" style="margin-top: 8px;">Copy Tweet</button>
           </div>
+          <button class="call-btn" id="call-close-one">📞 Call Close One</button>
           <button class="song-btn" id="play-song-btn">Play an upbeat song</button>
         `;
         
@@ -338,11 +417,22 @@ async function analyzeOnLoad() {
           });
         });
 
+        // Call Close One button handler
+        const callBtn = resultDiv.querySelector('#call-close-one');
+        if (callBtn) {
+          callBtn.addEventListener('click', callCloseOne);
+        }
+
         // Song button handler
         const songBtn = resultDiv.querySelector('#play-song-btn');
         if (songBtn) {
           songBtn.addEventListener('click', () => playRandomSong(songBtn));
         }
+
+        // Show chatbot after 2.5 second delay
+        setTimeout(() => {
+          showChatbotPrompt(resultDiv);
+        }, 2500);
       }
     );
   });

@@ -1,6 +1,580 @@
 // Content script loaded
 console.log("Twitter Sentiment Extension content script loaded on:", window.location.href);
 
+// ============================
+// SIDEBAR PANEL IMPLEMENTATION
+// ============================
+
+// Inject CSS for sidebar
+const style = document.createElement('style');
+style.textContent = `
+  #sentiment-sidebar {
+    position: fixed;
+    right: 0;
+    top: 0;
+    width: 320px;
+    height: 100vh;
+    background-color: #000000;
+    border-left: 1px solid #2a2a2a;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    transition: width 0.3s ease;
+    box-shadow: -2px 0 8px rgba(0,0,0,0.5);
+  }
+  #sentiment-sidebar.collapsed {
+    width: 60px;
+  }
+  #sentiment-sidebar-header {
+    padding: 12px;
+    border-bottom: 1px solid #2a2a2a;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #000000;
+  }
+  #sentiment-sidebar-title {
+    font-size: 16px;
+    font-weight: bold;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  #sentiment-sidebar.collapsed #sentiment-sidebar-title {
+    display: none;
+  }
+  #sentiment-sidebar-toggle {
+    background: none;
+    border: none;
+    color: #ffffff;
+    cursor: pointer;
+    font-size: 20px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+  }
+  #sentiment-sidebar-toggle:hover {
+    background-color: #1a1a1a;
+  }
+  #sentiment-sidebar-stats {
+    padding: 12px;
+    border-bottom: 1px solid #2a2a2a;
+    background-color: #000000;
+  }
+  #sentiment-sidebar.collapsed #sentiment-sidebar-stats {
+    display: none;
+  }
+  .sentiment-stat {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+  .sentiment-stat-label {
+    color: #888;
+  }
+  .sentiment-stat-value {
+    color: #ffffff;
+    font-weight: bold;
+  }
+  .sentiment-stat-value.safe {
+    color: #28a745;
+  }
+  .sentiment-stat-value.warning {
+    color: #ffc107;
+  }
+  .sentiment-stat-value.critical {
+    color: #dc3545;
+  }
+  #sentiment-sidebar-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+  }
+  #sentiment-sidebar.collapsed #sentiment-sidebar-content {
+    display: none;
+  }
+  .sentiment-tweet-card {
+    background-color: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s, border-color 0.2s;
+  }
+  .sentiment-tweet-card:hover {
+    background-color: #252525;
+    border-color: #3a3a3a;
+  }
+  .sentiment-tweet-card.safe {
+    border-left: 3px solid #28a745;
+  }
+  .sentiment-tweet-card.warning {
+    border-left: 3px solid #ffc107;
+  }
+  .sentiment-tweet-card.critical {
+    border-left: 3px solid #dc3545;
+  }
+  .sentiment-tweet-card.loading {
+    border-left: 3px solid #6c757d;
+    opacity: 0.7;
+  }
+  .sentiment-tweet-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .sentiment-tweet-status {
+    font-size: 18px;
+    font-weight: bold;
+  }
+  .sentiment-tweet-status.safe::before {
+    content: "✓";
+    color: #28a745;
+  }
+  .sentiment-tweet-status.warning::before {
+    content: "!";
+    color: #ffc107;
+  }
+  .sentiment-tweet-status.critical::before {
+    content: "⚠";
+    color: #dc3545;
+  }
+  .sentiment-tweet-status.loading::before {
+    content: "...";
+    color: #6c757d;
+  }
+  .sentiment-tweet-confidence {
+    font-size: 11px;
+    color: #888;
+  }
+  .sentiment-tweet-preview {
+    font-size: 12px;
+    color: #ffffff;
+    line-height: 1.4;
+    margin-bottom: 4px;
+    word-wrap: break-word;
+  }
+  .sentiment-tweet-expanded {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #2a2a2a;
+    font-size: 11px;
+    color: #888;
+  }
+  .sentiment-tweet-actions {
+    margin-top: 8px;
+    display: flex;
+    gap: 8px;
+  }
+  .sentiment-action-btn {
+    background-color: #1da1f2;
+    color: #ffffff;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  .sentiment-action-btn:hover {
+    background-color: #1a8cd8;
+  }
+  .sentiment-empty-state {
+    text-align: center;
+    color: #888;
+    padding: 40px 20px;
+    font-size: 13px;
+  }
+`;
+document.head.appendChild(style);
+
+// State management
+const sidebarState = {
+  isCollapsed: false,
+  analyzedTweets: new Map(), // tweet text -> analysis result
+  tweetElements: new Map(), // tweet element -> tweet data
+  stats: {
+    safe: 0,
+    warning: 0,
+    critical: 0,
+    total: 0
+  },
+  analysisQueue: [],
+  processingQueue: false,
+  maxConcurrent: 3,
+  activeRequests: 0
+};
+
+// Extract tweet text from a tweet element
+function getTweetText(tweetElement) {
+  const selectors = [
+    '[data-testid="tweetText"]',
+    '[data-testid="tweet-text"]',
+    'div[data-testid="tweetText"]',
+    'article div[lang]'
+  ];
+
+  for (let selector of selectors) {
+    const textElement = tweetElement.querySelector(selector);
+    if (textElement && textElement.innerText && textElement.innerText.trim()) {
+      return textElement.innerText.trim();
+    }
+  }
+  return null;
+}
+
+// Classify tweet via backend API
+async function classifyTweet(tweetText) {
+  try {
+    const response = await fetch("http://localhost:5000/classify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: tweetText })
+    });
+    const result = await response.json();
+    return result;
+  } catch (err) {
+    console.error("Classification failed:", err);
+    return { label: false, error: "classification_failed" };
+  }
+}
+
+// Create sidebar DOM structure
+function createSidebar() {
+  // Remove existing sidebar if present
+  const existing = document.getElementById('sentiment-sidebar');
+  if (existing) {
+    existing.remove();
+  }
+
+  const sidebar = document.createElement('div');
+  sidebar.id = 'sentiment-sidebar';
+  
+  // Load collapsed state from storage
+  chrome.storage.local.get(['sidebarCollapsed'], (result) => {
+    if (result.sidebarCollapsed) {
+      sidebar.classList.add('collapsed');
+      sidebarState.isCollapsed = true;
+    }
+  });
+
+  sidebar.innerHTML = `
+    <div id="sentiment-sidebar-header">
+      <div id="sentiment-sidebar-title">Sentiment Analysis</div>
+      <button id="sentiment-sidebar-toggle">◀</button>
+    </div>
+    <div id="sentiment-sidebar-stats">
+      <div class="sentiment-stat">
+        <span class="sentiment-stat-label">Safe:</span>
+        <span class="sentiment-stat-value safe" id="stat-safe">0</span>
+      </div>
+      <div class="sentiment-stat">
+        <span class="sentiment-stat-label">Warning:</span>
+        <span class="sentiment-stat-value warning" id="stat-warning">0</span>
+      </div>
+      <div class="sentiment-stat">
+        <span class="sentiment-stat-label">Critical:</span>
+        <span class="sentiment-stat-value critical" id="stat-critical">0</span>
+      </div>
+      <div class="sentiment-stat">
+        <span class="sentiment-stat-label">Total:</span>
+        <span class="sentiment-stat-value" id="stat-total">0</span>
+      </div>
+    </div>
+    <div id="sentiment-sidebar-content">
+      <div class="sentiment-empty-state">Scroll to analyze tweets in viewport</div>
+    </div>
+  `;
+
+  document.body.appendChild(sidebar);
+
+  // Toggle collapse/expand
+  const toggleBtn = sidebar.querySelector('#sentiment-sidebar-toggle');
+  toggleBtn.addEventListener('click', () => {
+    sidebar.classList.toggle('collapsed');
+    sidebarState.isCollapsed = sidebar.classList.contains('collapsed');
+    toggleBtn.textContent = sidebarState.isCollapsed ? '▶' : '◀';
+    
+    // Save state
+    chrome.storage.local.set({ sidebarCollapsed: sidebarState.isCollapsed });
+  });
+
+  return sidebar;
+}
+
+// Update stats display
+function updateStats() {
+  const safeEl = document.getElementById('stat-safe');
+  const warningEl = document.getElementById('stat-warning');
+  const criticalEl = document.getElementById('stat-critical');
+  const totalEl = document.getElementById('stat-total');
+
+  if (safeEl) safeEl.textContent = sidebarState.stats.safe;
+  if (warningEl) warningEl.textContent = sidebarState.stats.warning;
+  if (criticalEl) criticalEl.textContent = sidebarState.stats.critical;
+  if (totalEl) totalEl.textContent = sidebarState.stats.total;
+}
+
+// Create tweet card
+function createTweetCard(tweetText, result, isExpanded = false) {
+  const cardId = `tweet-card-${tweetText.substring(0, 20).replace(/\s/g, '-')}`;
+  
+  let statusClass = 'safe';
+  let statusIcon = 'safe';
+  let statusText = 'Safe';
+  let confidence = 'N/A';
+
+  if (result && result.error) {
+    statusClass = 'loading';
+    statusIcon = 'loading';
+    statusText = 'Error';
+  } else if (result && result.label === true) {
+    statusClass = 'critical';
+    statusIcon = 'critical';
+    statusText = 'Critical';
+    confidence = result.detail?.top_score ? (result.detail.top_score * 100).toFixed(1) + '%' : 'N/A';
+  } else if (result && result.detail && result.detail.top_score > 0.4) {
+    statusClass = 'warning';
+    statusIcon = 'warning';
+    statusText = 'Warning';
+    confidence = (result.detail.top_score * 100).toFixed(1) + '%';
+  } else {
+    confidence = result?.detail?.top_score ? (result.detail.top_score * 100).toFixed(1) + '%' : 'N/A';
+  }
+
+  const preview = tweetText.length > 50 ? tweetText.substring(0, 50) + '...' : tweetText;
+  const expandedContent = isExpanded ? `
+    <div class="sentiment-tweet-expanded">
+      <div><strong>Full Tweet:</strong></div>
+      <div style="margin-top: 4px;">${tweetText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+      ${result && result.detail ? `
+        <div style="margin-top: 8px;"><strong>Label:</strong> ${result.detail.top_label || 'N/A'}</div>
+        <div><strong>Confidence:</strong> ${confidence}</div>
+      ` : ''}
+      ${statusClass === 'critical' ? `
+        <div class="sentiment-tweet-actions">
+          <button class="sentiment-action-btn" onclick="window.open('chrome-extension://${chrome.runtime.id}/popup.html', '_blank')">Get Help</button>
+        </div>
+      ` : ''}
+    </div>
+  ` : '';
+
+  return `
+    <div class="sentiment-tweet-card ${statusClass}" data-tweet-text="${tweetText.replace(/"/g, '&quot;')}" id="${cardId}">
+      <div class="sentiment-tweet-header">
+        <span class="sentiment-tweet-status ${statusIcon}">${statusText}</span>
+        <span class="sentiment-tweet-confidence">${confidence}</span>
+      </div>
+      <div class="sentiment-tweet-preview">${preview.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+      ${expandedContent}
+    </div>
+  `;
+}
+
+// Add tweet card to sidebar
+function addTweetCard(tweetText, result) {
+  const content = document.getElementById('sentiment-sidebar-content');
+  if (!content) return;
+
+  // Remove empty state if present
+  const emptyState = content.querySelector('.sentiment-empty-state');
+  if (emptyState) {
+    emptyState.remove();
+  }
+
+  // Check if card already exists
+  const cardId = `tweet-card-${tweetText.substring(0, 20).replace(/\s/g, '-')}`;
+  let existingCard = document.getElementById(cardId);
+  
+  if (existingCard) {
+    // Update existing card
+    existingCard.outerHTML = createTweetCard(tweetText, result, false);
+  } else {
+    // Add new card at the top
+    const cardHTML = createTweetCard(tweetText, result, false);
+    content.insertAdjacentHTML('afterbegin', cardHTML);
+  }
+
+  // Add click handler to toggle expansion
+  const newCard = document.getElementById(cardId);
+  if (newCard) {
+    newCard.addEventListener('click', (e) => {
+      if (e.target.classList.contains('sentiment-action-btn')) {
+        return; // Don't toggle if clicking action button
+      }
+      const isExpanded = newCard.querySelector('.sentiment-tweet-expanded');
+      newCard.outerHTML = createTweetCard(tweetText, result, !isExpanded);
+      
+      // Re-attach click handler
+      const updatedCard = document.getElementById(cardId);
+      if (updatedCard) {
+        updatedCard.addEventListener('click', (e) => {
+          if (e.target.classList.contains('sentiment-action-btn')) return;
+          const expanded = updatedCard.querySelector('.sentiment-tweet-expanded');
+          updatedCard.outerHTML = createTweetCard(tweetText, result, !expanded);
+        });
+      }
+    });
+  }
+
+  // Update stats
+  updateStats();
+}
+
+// Process analysis queue
+async function processAnalysisQueue() {
+  if (sidebarState.processingQueue || sidebarState.analysisQueue.length === 0) {
+    return;
+  }
+
+  if (sidebarState.activeRequests >= sidebarState.maxConcurrent) {
+    return;
+  }
+
+  sidebarState.processingQueue = true;
+
+  while (sidebarState.analysisQueue.length > 0 && sidebarState.activeRequests < sidebarState.maxConcurrent) {
+    const { tweetText, tweetElement } = sidebarState.analysisQueue.shift();
+    
+    // Skip if already analyzed
+    if (sidebarState.analyzedTweets.has(tweetText)) {
+      continue;
+    }
+
+    // Show loading card
+    addTweetCard(tweetText, { loading: true });
+
+    sidebarState.activeRequests++;
+    
+    classifyTweet(tweetText).then(result => {
+      sidebarState.activeRequests--;
+      
+      // Store result
+      sidebarState.analyzedTweets.set(tweetText, result);
+      sidebarState.tweetElements.set(tweetElement, { text: tweetText, result });
+
+      // Update stats
+      if (result && result.label === true) {
+        sidebarState.stats.critical++;
+      } else if (result && result.detail && result.detail.top_score > 0.4) {
+        sidebarState.stats.warning++;
+      } else {
+        sidebarState.stats.safe++;
+      }
+      sidebarState.stats.total++;
+
+      // Update card with result
+      addTweetCard(tweetText, result);
+
+      // Continue processing queue
+      sidebarState.processingQueue = false;
+      processAnalysisQueue();
+    }).catch(err => {
+      sidebarState.activeRequests--;
+      console.error('Analysis error:', err);
+      addTweetCard(tweetText, { error: true });
+      sidebarState.processingQueue = false;
+      processAnalysisQueue();
+    });
+  }
+
+  sidebarState.processingQueue = false;
+}
+
+// Queue tweet for analysis
+function queueTweetForAnalysis(tweetElement) {
+  const tweetText = getTweetText(tweetElement);
+  if (!tweetText) return;
+
+  // Skip if already analyzed
+  if (sidebarState.analyzedTweets.has(tweetText)) {
+    return;
+  }
+
+  // Skip if already in queue
+  if (sidebarState.analysisQueue.some(item => item.tweetText === tweetText)) {
+    return;
+  }
+
+  sidebarState.analysisQueue.push({ tweetText, tweetElement });
+  processAnalysisQueue();
+}
+
+// Initialize IntersectionObserver for viewport detection
+function initViewportObserver() {
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        // Tweet entered viewport - queue for analysis
+        queueTweetForAnalysis(entry.target);
+      }
+    });
+  }, {
+    root: null,
+    rootMargin: '50px', // Start analyzing slightly before tweet enters viewport
+    threshold: 0.1
+  });
+
+  // Observe all tweet articles
+  const observeTweets = () => {
+    const tweetSelectors = [
+      'article[data-testid="tweet"]',
+      'article[role="article"]'
+    ];
+
+    for (let selector of tweetSelectors) {
+      document.querySelectorAll(selector).forEach(tweet => {
+        if (!tweet.hasAttribute('data-sentiment-observed')) {
+          tweet.setAttribute('data-sentiment-observed', 'true');
+          observer.observe(tweet);
+        }
+      });
+    }
+  };
+
+  // Initial observation
+  observeTweets();
+
+  // Watch for new tweets (Twitter's infinite scroll)
+  const mutationObserver = new MutationObserver(() => {
+    observeTweets();
+  });
+
+  mutationObserver.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+
+  // Also check periodically (backup)
+  setInterval(observeTweets, 2000);
+}
+
+// Initialize sidebar when page loads
+function initSidebar() {
+  // Wait for Twitter to load
+  const checkTwitterLoaded = setInterval(() => {
+    if (document.querySelector('article[data-testid="tweet"]') || document.body) {
+      clearInterval(checkTwitterLoaded);
+      createSidebar();
+      initViewportObserver();
+    }
+  }, 500);
+
+  // Timeout after 10 seconds
+  setTimeout(() => {
+    clearInterval(checkTwitterLoaded);
+    createSidebar();
+    initViewportObserver();
+  }, 10000);
+}
+
+// ============================
+// EXISTING FUNCTIONALITY (for popup compatibility)
+// ============================
+
 // Extract the first tweet text
 function getFirstTweet() {
   // Try multiple selectors for tweets as Twitter's DOM structure can change
@@ -35,22 +609,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
-// Also try to find tweets when the page loads or changes
-function checkForTweets() {
-  const tweetText = getFirstTweet();
-  if (tweetText) {
-    console.log("Tweet found on page load:", tweetText.substring(0, 100) + "...");
-  }
-}
-
-// Check for tweets when DOM is ready and after a short delay
+// Initialize sidebar
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', checkForTweets);
+  document.addEventListener('DOMContentLoaded', initSidebar);
 } else {
-  checkForTweets();
+  initSidebar();
 }
 
-// Check again after page loads completely
-window.addEventListener('load', () => {
-  setTimeout(checkForTweets, 2000);
-});
+// Also initialize on navigation (Twitter SPA)
+let lastUrl = location.href;
+new MutationObserver(() => {
+  const url = location.href;
+  if (url !== lastUrl) {
+    lastUrl = url;
+    // Reinitialize sidebar on navigation
+    setTimeout(initSidebar, 1000);
+  }
+}).observe(document, { subtree: true, childList: true });
