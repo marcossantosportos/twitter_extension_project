@@ -152,16 +152,58 @@ async function getCityFromIP() {
 
 async function classifyTweet(tweetText) {
   try {
+    // Validate tweet text
+    if (!tweetText || !tweetText.trim()) {
+      return { label: false, error: "empty_tweet", detail: "Tweet text is empty or invalid." };
+    }
+
     let response = await fetch("http://localhost:5000/classify", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: tweetText })
     });
+
+    // Check if response is OK
+    if (!response.ok) {
+      // Try to get error message from response
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
+      }
+      console.error("Server error response:", response.status, errorData);
+      return { label: false, error: "server_error", detail: errorData.error || `Server returned ${response.status}` };
+    }
+
+    // Parse JSON for successful responses
     let result = await response.json();
+    
+    // Check if backend returned an error in the response body
+    // (Even with HTTP 200, backend might return { error: ... } in some cases)
+    if (result.error) {
+      console.error("Backend returned error:", result.error);
+      return { label: false, error: "backend_error", detail: result.error };
+    }
+
+    // Ensure result has expected structure
+    if (!result || typeof result !== 'object') {
+      return { label: false, error: "invalid_response", detail: "Invalid response format from server" };
+    }
+
+    // Valid response - return as-is
     return result;
+    
   } catch (err) {
     console.error("Classification failed:", err);
-    return { label: false, error: "classification_failed" };
+    // More specific error messages
+    if (err.name === 'TypeError' && err.message.includes('fetch')) {
+      return { label: false, error: "connection_failed", detail: "Cannot connect to server. Make sure the backend is running on http://localhost:5000" };
+    }
+    if (err instanceof SyntaxError) {
+      return { label: false, error: "parse_error", detail: "Server returned invalid JSON response" };
+    }
+    return { label: false, error: "classification_failed", detail: err.message || "Unknown error occurred" };
   }
 }
 

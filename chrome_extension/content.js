@@ -229,16 +229,58 @@ function getTweetText(tweetElement) {
 // Classify tweet via backend API
 async function classifyTweet(tweetText) {
   try {
+    // Validate tweet text
+    if (!tweetText || !tweetText.trim()) {
+      return { label: false, error: "empty_tweet", detail: "Tweet text is empty or invalid." };
+    }
+
     const response = await fetch("http://localhost:5000/classify", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: tweetText })
     });
+
+    // Check if response is OK
+    if (!response.ok) {
+      // Try to get error message from response
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
+      }
+      console.error("Server error response:", response.status, errorData);
+      return { label: false, error: "server_error", detail: errorData.error || `Server returned ${response.status}` };
+    }
+
+    // Parse JSON for successful responses
     const result = await response.json();
+    
+    // Check if backend returned an error in the response body
+    // (Even with HTTP 200, backend might return { error: ... } in some cases)
+    if (result.error) {
+      console.error("Backend returned error:", result.error);
+      return { label: false, error: "backend_error", detail: result.error };
+    }
+
+    // Ensure result has expected structure
+    if (!result || typeof result !== 'object') {
+      return { label: false, error: "invalid_response", detail: "Invalid response format from server" };
+    }
+
+    // Valid response - return as-is
     return result;
+    
   } catch (err) {
     console.error("Classification failed:", err);
-    return { label: false, error: "classification_failed" };
+    // More specific error messages
+    if (err.name === 'TypeError' && err.message.includes('fetch')) {
+      return { label: false, error: "connection_failed", detail: "Cannot connect to server. Make sure the backend is running on http://localhost:5000" };
+    }
+    if (err instanceof SyntaxError) {
+      return { label: false, error: "parse_error", detail: "Server returned invalid JSON response" };
+    }
+    return { label: false, error: "classification_failed", detail: err.message || "Unknown error occurred" };
   }
 }
 
@@ -327,22 +369,27 @@ function createTweetCard(tweetText, result, isExpanded = false) {
   let statusText = 'Safe';
   let confidence = 'N/A';
 
+  let errorMessage = null;
+
   if (result && result.error) {
     statusClass = 'loading';
     statusIcon = 'loading';
     statusText = 'Error';
+    errorMessage = result.detail || result.error || 'Unknown error';
   } else if (result && result.label === true) {
     statusClass = 'critical';
     statusIcon = 'critical';
     statusText = 'Critical';
-    confidence = result.detail?.top_score ? (result.detail.top_score * 100).toFixed(1) + '%' : 'N/A';
-  } else if (result && result.detail && result.detail.top_score > 0.4) {
+    // FIX: Safely access detail.top_score
+    confidence = (result.detail && result.detail.top_score) ? (result.detail.top_score * 100).toFixed(1) + '%' : 'N/A';
+  } else if (result && result.detail && result.detail.top_score && result.detail.top_score > 0.4) {
     statusClass = 'warning';
     statusIcon = 'warning';
     statusText = 'Warning';
     confidence = (result.detail.top_score * 100).toFixed(1) + '%';
   } else {
-    confidence = result?.detail?.top_score ? (result.detail.top_score * 100).toFixed(1) + '%' : 'N/A';
+    // Safe tweets
+    confidence = (result?.detail?.top_score) ? (result.detail.top_score * 100).toFixed(1) + '%' : 'N/A';
   }
 
   const preview = tweetText.length > 50 ? tweetText.substring(0, 50) + '...' : tweetText;
@@ -350,7 +397,10 @@ function createTweetCard(tweetText, result, isExpanded = false) {
     <div class="sentiment-tweet-expanded">
       <div><strong>Full Tweet:</strong></div>
       <div style="margin-top: 4px;">${tweetText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
-      ${result && result.detail ? `
+      ${errorMessage ? `
+        <div style="margin-top: 8px; color: #dc3545;"><strong>Error:</strong> ${errorMessage.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+      ` : ''}
+      ${result && result.detail && !errorMessage ? `
         <div style="margin-top: 8px;"><strong>Label:</strong> ${result.detail.top_label || 'N/A'}</div>
         <div><strong>Confidence:</strong> ${confidence}</div>
       ` : ''}
