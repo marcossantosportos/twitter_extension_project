@@ -33,23 +33,24 @@ const cityAliases = {
   "bangalore": "Bangalore",
 };
 
-// Upbeat songs (play via embedded YouTube search playlist to enable autoplay)
+// Upbeat songs (open a direct YouTube watch URL so it starts playing immediately)
+// Note: videoIds are best-effort and can be swapped anytime if you prefer different official uploads.
 const calmingSongs = [
-  { title: "Happy — Pharrell Williams", query: "Happy Pharrell Williams" },
-  { title: "Best Day of My Life — American Authors", query: "Best Day of My Life American Authors" },
-  { title: "Can't Stop the Feeling! — Justin Timberlake", query: "Can't Stop the Feeling Justin Timberlake" },
-  { title: "Walking on Sunshine — Katrina & The Waves", query: "Walking on Sunshine Katrina and The Waves" },
-  { title: "Uptown Funk — Bruno Mars & Mark Ronson", query: "Uptown Funk Bruno Mars Mark Ronson" },
-  { title: "Good Life — OneRepublic", query: "Good Life OneRepublic" },
-  { title: "Wake Me Up — Avicii", query: "Wake Me Up Avicii" },
-  { title: "On Top of the World — Imagine Dragons", query: "On Top of the World Imagine Dragons" },
-  { title: "What Makes You Beautiful — One Direction", query: "What Makes You Beautiful One Direction" },
-  { title: "Firework — Katy Perry", query: "Firework Katy Perry" },
-  { title: "I Gotta Feeling — The Black Eyed Peas", query: "I Gotta Feeling The Black Eyed Peas" },
-  { title: "Sugar — Maroon 5", query: "Sugar Maroon 5" },
-  { title: "Dancing Queen — ABBA", query: "Dancing Queen ABBA" },
-  { title: "High Hopes — Panic! At The Disco", query: "High Hopes Panic! At The Disco" },
-  { title: "Levitating — Dua Lipa", query: "Levitating Dua Lipa" }
+  { title: "Happy — Pharrell Williams", videoId: "ZbZSe6N_BXs" },
+  { title: "Best Day of My Life — American Authors", videoId: "Y66j_BUCBMY" },
+  { title: "Can't Stop the Feeling! — Justin Timberlake", videoId: "ru0K8uYEZWw" },
+  { title: "Walking on Sunshine — Katrina & The Waves", videoId: "iPUmE-tne5U" },
+  { title: "Uptown Funk — Mark Ronson ft. Bruno Mars", videoId: "OPf0YbXqDm0" },
+  { title: "Good Life — OneRepublic", videoId: "jZhQOvvV45w" },
+  { title: "Wake Me Up — Avicii", videoId: "IcrbM1l_BoI" },
+  { title: "On Top of the World — Imagine Dragons", videoId: "w5tWYmIOWGk" },
+  { title: "What Makes You Beautiful — One Direction", videoId: "QJO3ROT-A4E" },
+  { title: "Firework — Katy Perry", videoId: "QGJuMBdaqIw" },
+  { title: "I Gotta Feeling — The Black Eyed Peas", videoId: "uSD4vsh1zDA" },
+  { title: "Sugar — Maroon 5", videoId: "09R8_2nJtjg" },
+  { title: "Dancing Queen — ABBA", videoId: "xFrGuyw1V8s" },
+  { title: "High Hopes — Panic! At The Disco", videoId: "IPXIgEAGe4U" },
+  { title: "Levitating — Dua Lipa", videoId: "TUVcZfQe-Kw" }
 ];
 
 function normalizeCityName(name) {
@@ -259,11 +260,17 @@ async function analyzeOnLoad() {
     const playRandomSong = (buttonEl) => {
       if (!calmingSongs.length) return;
       const track = calmingSongs[Math.floor(Math.random() * calmingSongs.length)];
-      const query = encodeURIComponent(track.query || track.title);
 
       const originalText = buttonEl.textContent;
       buttonEl.textContent = `Opening: ${track.title}`;
-      globalThis.open(`https://www.youtube.com/results?search_query=${query}`, "_blank");
+      if (track.videoId) {
+        // Direct watch URL so YouTube loads the player and starts playback
+        globalThis.open(`https://www.youtube.com/watch?v=${track.videoId}&autoplay=1`, "_blank");
+      } else {
+        // Fallback to search
+        const query = encodeURIComponent(track.title);
+        globalThis.open(`https://www.youtube.com/results?search_query=${query}`, "_blank");
+      }
       setTimeout(() => {
         buttonEl.textContent = originalText;
       }, 1500);
