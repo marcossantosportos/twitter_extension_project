@@ -281,10 +281,10 @@ async function analyzeOnLoad() {
       const chatbotHTML = `
         <div id="chatbot-section">
           <div class="chatbot-message">
-            💬 <strong>Support Assistant:</strong> Would you like to listen to a song or call a close one?
+            💬 <strong>Support Assistant:</strong> Would you like to listen to a song or message a close one?
           </div>
           <div class="chatbot-buttons">
-            <button class="call-btn" id="call-close-one-chatbot">📞 Call Close One</button>
+            <button class="call-btn" id="message-close-one-chatbot">💬 Message Close One</button>
             <button class="song-btn" id="play-song-btn-chatbot">Play an upbeat song</button>
           </div>
         </div>
@@ -292,10 +292,10 @@ async function analyzeOnLoad() {
       
       resultDiv.insertAdjacentHTML('beforeend', chatbotHTML);
 
-      // Call Close One button handler in chatbot
-      const callBtnChatbot = document.getElementById('call-close-one-chatbot');
-      if (callBtnChatbot) {
-        callBtnChatbot.addEventListener('click', callCloseOne);
+      // Message Close One button handler in chatbot
+      const messageBtnChatbot = document.getElementById('message-close-one-chatbot');
+      if (messageBtnChatbot) {
+        messageBtnChatbot.addEventListener('click', messageCloseOne);
       }
 
       // Song button handler in chatbot
@@ -314,20 +314,97 @@ async function analyzeOnLoad() {
       globalThis.open(`https://www.youtube.com/watch?v=${videoId}`, "_blank");
     }
 
-    // Call close one function
-    function callCloseOne() {
-      const emergencyNumber = "8208022049";
+    // Message close one function - opens WhatsApp Web
+    function messageCloseOne() {
+      const emergencyNumber = "9637124027";
+      const messageText = encodeURIComponent("This user needs your help. Please reach out to them.");
       
-      // Try tel: protocol
-      window.location.href = `tel:${emergencyNumber}`;
-      
-      // Fallback: If tel: doesn't work (desktop), show alert after delay
-      setTimeout(() => {
-        // Check if we're still on the same page (tel: didn't navigate away)
-        if (document.getElementById('result')) {
-          alert(`If the call didn't start, please dial: ${emergencyNumber}`);
+      // Copy number to clipboard
+      let copied = false;
+      (async () => {
+        try {
+          await navigator.clipboard.writeText(emergencyNumber);
+          copied = true;
+        } catch (err) {
+          console.warn("Failed to copy to clipboard:", err);
+          // Fallback: use execCommand for older browsers
+          try {
+            const textArea = document.createElement('textarea');
+            textArea.value = emergencyNumber;
+            textArea.style.position = 'fixed';
+            textArea.style.opacity = '0';
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            copied = true;
+          } catch (e) {
+            console.warn("Fallback copy also failed:", e);
+          }
         }
-      }, 1000);
+        
+        // Open WhatsApp Web with pre-filled message
+        const whatsappUrl = `https://wa.me/${emergencyNumber.replace(/[^0-9]/g, '')}?text=${messageText}`;
+        globalThis.open(whatsappUrl, '_blank');
+        
+        // Show feedback
+        showMessageFeedback(emergencyNumber, copied);
+      })();
+    }
+    
+    // Helper function to show message feedback
+    function showMessageFeedback(number, copied) {
+      const resultDiv = document.getElementById('result');
+      if (!resultDiv) return;
+      
+      // Remove any existing feedback
+      const existingFeedback = resultDiv.querySelector('.call-feedback');
+      if (existingFeedback) {
+        existingFeedback.remove();
+      }
+      
+      const feedback = document.createElement('div');
+      feedback.className = 'call-feedback';
+      feedback.style.cssText = 'margin-top: 12px; padding: 12px; background-color: #1a1a1a; border: 2px solid #dc3545; border-radius: 8px; font-size: 13px; color: #ffffff; text-align: center;';
+      
+      let message = '';
+      if (copied) {
+        message = '<div style="font-weight: bold; margin-bottom: 8px; color: #28a745;">✓ Number copied to clipboard!</div>';
+      } else {
+        message = '<div style="font-weight: bold; margin-bottom: 8px;">💬 Emergency Contact</div>';
+      }
+      
+      const instructions = `<div style="font-size: 11px; color: #888; margin-top: 8px; line-height: 1.4;">
+        WhatsApp Web should have opened in a new tab with a pre-filled message.<br>
+        ${copied ? 'Number is also copied to clipboard.' : ''}
+      </div>`;
+      
+      // Set the HTML content first
+      feedback.innerHTML = `
+        ${message}
+        <div style="font-size: 22px; font-weight: bold; margin: 12px 0; color: #1da1f2; letter-spacing: 3px; font-family: monospace;">${number}</div>
+        ${instructions}
+      `;
+      
+      // Add a button to open WhatsApp again if needed
+      const whatsappLink = document.createElement('a');
+      const messageText = encodeURIComponent("This user needs your help. Please reach out to them.");
+      whatsappLink.href = `https://wa.me/${number.replace(/[^0-9]/g, '')}?text=${messageText}`;
+      whatsappLink.target = '_blank';
+      whatsappLink.style.cssText = 'display: inline-block; margin-top: 10px; padding: 10px 20px; background-color: #25D366; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer;';
+      whatsappLink.textContent = '💬 Open WhatsApp Again';
+      
+      // Add the button to the feedback div
+      feedback.appendChild(whatsappLink);
+      
+      resultDiv.appendChild(feedback);
+      
+      // Remove feedback after 10 seconds
+      setTimeout(() => {
+        if (feedback.parentNode) {
+          feedback.parentNode.removeChild(feedback);
+        }
+      }, 10000);
     }
 
     if (!clf || clf.label !== true) {
