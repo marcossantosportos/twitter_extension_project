@@ -33,23 +33,23 @@ const cityAliases = {
   "bangalore": "Bangalore",
 };
 
-// Calming songs (open links only; no streaming here)
+// Upbeat songs (play via embedded YouTube search playlist to enable autoplay)
 const calmingSongs = [
-  { title: "Happy — Pharrell Williams", url: "https://www.youtube.com/results?search_query=Happy+Pharrell+Williams" },
-  { title: "Best Day of My Life — American Authors", url: "https://www.youtube.com/results?search_query=Best+Day+of+My+Life+American+Authors" },
-  { title: "Can't Stop the Feeling! — Justin Timberlake", url: "https://www.youtube.com/results?search_query=Can%27t+Stop+the+Feeling+Justin+Timberlake" },
-  { title: "Walking on Sunshine — Katrina & The Waves", url: "https://www.youtube.com/results?search_query=Walking+on+Sunshine+Katrina+The+Waves" },
-  { title: "Uptown Funk — Bruno Mars & Mark Ronson", url: "https://www.youtube.com/results?search_query=Uptown+Funk+Bruno+Mars+Mark+Ronson" },
-  { title: "Good Life — OneRepublic", url: "https://www.youtube.com/results?search_query=Good+Life+OneRepublic" },
-  { title: "Wake Me Up — Avicii", url: "https://www.youtube.com/results?search_query=Wake+Me+Up+Avicii" },
-  { title: "On Top of the World — Imagine Dragons", url: "https://www.youtube.com/results?search_query=On+Top+of+the+World+Imagine+Dragons" },
-  { title: "What Makes You Beautiful — One Direction", url: "https://www.youtube.com/results?search_query=What+Makes+You+Beautiful+One+Direction" },
-  { title: "Firework — Katy Perry", url: "https://www.youtube.com/results?search_query=Firework+Katy+Perry" },
-  { title: "I Gotta Feeling — The Black Eyed Peas", url: "https://www.youtube.com/results?search_query=I+Gotta+Feeling+The+Black+Eyed+Peas" },
-  { title: "Sugar — Maroon 5", url: "https://www.youtube.com/results?search_query=Sugar+Maroon+5" },
-  { title: "Dancing Queen — ABBA", url: "https://www.youtube.com/results?search_query=Dancing+Queen+ABBA" },
-  { title: "High Hopes — Panic! At The Disco", url: "https://www.youtube.com/results?search_query=High+Hopes+Panic+At+The+Disco" },
-  { title: "Levitating — Dua Lipa", url: "https://www.youtube.com/results?search_query=Levitating+Dua+Lipa" }
+  { title: "Happy — Pharrell Williams", query: "Happy Pharrell Williams" },
+  { title: "Best Day of My Life — American Authors", query: "Best Day of My Life American Authors" },
+  { title: "Can't Stop the Feeling! — Justin Timberlake", query: "Can't Stop the Feeling Justin Timberlake" },
+  { title: "Walking on Sunshine — Katrina & The Waves", query: "Walking on Sunshine Katrina and The Waves" },
+  { title: "Uptown Funk — Bruno Mars & Mark Ronson", query: "Uptown Funk Bruno Mars Mark Ronson" },
+  { title: "Good Life — OneRepublic", query: "Good Life OneRepublic" },
+  { title: "Wake Me Up — Avicii", query: "Wake Me Up Avicii" },
+  { title: "On Top of the World — Imagine Dragons", query: "On Top of the World Imagine Dragons" },
+  { title: "What Makes You Beautiful — One Direction", query: "What Makes You Beautiful One Direction" },
+  { title: "Firework — Katy Perry", query: "Firework Katy Perry" },
+  { title: "I Gotta Feeling — The Black Eyed Peas", query: "I Gotta Feeling The Black Eyed Peas" },
+  { title: "Sugar — Maroon 5", query: "Sugar Maroon 5" },
+  { title: "Dancing Queen — ABBA", query: "Dancing Queen ABBA" },
+  { title: "High Hopes — Panic! At The Disco", query: "High Hopes Panic! At The Disco" },
+  { title: "Levitating — Dua Lipa", query: "Levitating Dua Lipa" }
 ];
 
 function normalizeCityName(name) {
@@ -253,13 +253,17 @@ async function analyzeOnLoad() {
       `;
     };
     
-    // Play (open) a random calming song link
+    // Play a random upbeat song.
+    // NOTE: YouTube often blocks iframe playback from `chrome-extension://` origins
+    // (shows "Video player configuration error", e.g. Error 153). Open in a normal tab.
     const playRandomSong = (buttonEl) => {
       if (!calmingSongs.length) return;
       const track = calmingSongs[Math.floor(Math.random() * calmingSongs.length)];
+      const query = encodeURIComponent(track.query || track.title);
+
       const originalText = buttonEl.textContent;
       buttonEl.textContent = `Opening: ${track.title}`;
-      window.open(track.url, "_blank");
+      globalThis.open(`https://www.youtube.com/results?search_query=${query}`, "_blank");
       setTimeout(() => {
         buttonEl.textContent = originalText;
       }, 1500);
@@ -270,49 +274,37 @@ async function analyzeOnLoad() {
       const chatbotHTML = `
         <div id="chatbot-section">
           <div class="chatbot-message">
-            💬 <strong>Support Assistant:</strong> I noticed this thread is getting a bit heavy. Want to take a 2-minute breather with some calm music?
+            💬 <strong>Support Assistant:</strong> Would you like to listen to a song or call a close one?
           </div>
           <div class="chatbot-buttons">
-            <button id="chatbot-yes" class="chatbot-btn chatbot-btn-yes">Yes</button>
-            <button id="chatbot-no" class="chatbot-btn chatbot-btn-no">No, thanks</button>
+            <button class="call-btn" id="call-close-one-chatbot">📞 Call Close One</button>
+            <button class="song-btn" id="play-song-btn-chatbot">Play an upbeat song</button>
           </div>
         </div>
       `;
       
       resultDiv.insertAdjacentHTML('beforeend', chatbotHTML);
-      
-      // Handle Yes button
-      document.getElementById('chatbot-yes').addEventListener('click', () => {
-        playCalmingMusic();
-        const chatbotSection = document.getElementById('chatbot-section');
-        chatbotSection.innerHTML = `
-          <div style="color: #28a745; font-size: 13px; text-align: center; padding: 8px;">
-            ✓ Opening calming music for you...
-          </div>
-        `;
-      });
-      
-      // Handle No button
-      document.getElementById('chatbot-no').addEventListener('click', () => {
-        const chatbotSection = document.getElementById('chatbot-section');
-        chatbotSection.style.display = 'none';
-      });
+
+      // Call Close One button handler in chatbot
+      const callBtnChatbot = document.getElementById('call-close-one-chatbot');
+      if (callBtnChatbot) {
+        callBtnChatbot.addEventListener('click', callCloseOne);
+      }
+
+      // Song button handler in chatbot
+      const songBtnChatbot = document.getElementById('play-song-btn-chatbot');
+      if (songBtnChatbot) {
+        songBtnChatbot.addEventListener('click', () => playRandomSong(songBtnChatbot));
+      }
     }
 
-    // Play calming music using YouTube embed
+    // Play calming music.
+    // NOTE: YouTube often blocks iframe playback from `chrome-extension://` origins
+    // (shows "Video player configuration error", e.g. Error 153). Open in a normal tab.
     function playCalmingMusic() {
-      const musicPlayer = document.getElementById('music-player');
-      const youtubePlayer = document.getElementById('youtube-player');
-      
-      if (!musicPlayer || !youtubePlayer) return;
-      
       // Use a calming YouTube video (Lofi Hip Hop - 24/7 live stream)
       const videoId = "jfKfPfyJRdk"; // Lofi Hip Hop Radio
-      youtubePlayer.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`;
-      musicPlayer.style.display = 'block';
-      
-      // Scroll to music player
-      musicPlayer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      globalThis.open(`https://www.youtube.com/watch?v=${videoId}`, "_blank");
     }
 
     // Call close one function
@@ -390,8 +382,6 @@ async function analyzeOnLoad() {
             <div class="tweet-preview-text">${escapedTweet}</div>
             <button class="copy-btn" data-copy-text="${escapedTweetForCopy}" style="margin-top: 8px;">Copy Tweet</button>
           </div>
-          <button class="call-btn" id="call-close-one">📞 Call Close One</button>
-          <button class="song-btn" id="play-song-btn">Play an upbeat song</button>
         `;
         
         // Add click handlers for copy buttons
@@ -401,18 +391,6 @@ async function analyzeOnLoad() {
             copyToClipboard(textToCopy, btn);
           });
         });
-
-        // Call Close One button handler
-        const callBtn = resultDiv.querySelector('#call-close-one');
-        if (callBtn) {
-          callBtn.addEventListener('click', callCloseOne);
-        }
-
-        // Song button handler
-        const songBtn = resultDiv.querySelector('#play-song-btn');
-        if (songBtn) {
-          songBtn.addEventListener('click', () => playRandomSong(songBtn));
-        }
 
         // Show chatbot after 2.5 second delay
         setTimeout(() => {
@@ -447,8 +425,6 @@ async function analyzeOnLoad() {
             <div class="tweet-preview-text">${escapedTweet}</div>
             <button class="copy-btn" data-copy-text="${escapedTweetForCopy}" style="margin-top: 8px;">Copy Tweet</button>
           </div>
-          <button class="call-btn" id="call-close-one">📞 Call Close One</button>
-          <button class="song-btn" id="play-song-btn">Play an upbeat song</button>
         `;
         
         // Add click handlers for copy buttons
@@ -458,18 +434,6 @@ async function analyzeOnLoad() {
             copyToClipboard(textToCopy, btn);
           });
         });
-
-        // Call Close One button handler
-        const callBtn = resultDiv.querySelector('#call-close-one');
-        if (callBtn) {
-          callBtn.addEventListener('click', callCloseOne);
-        }
-
-        // Song button handler
-        const songBtn = resultDiv.querySelector('#play-song-btn');
-        if (songBtn) {
-          songBtn.addEventListener('click', () => playRandomSong(songBtn));
-        }
 
         // Show chatbot after 2.5 second delay
         setTimeout(() => {
