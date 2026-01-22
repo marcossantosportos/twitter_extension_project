@@ -327,7 +327,7 @@ function createSidebar() {
       </div>
     </div>
     <div id="sentiment-sidebar-content">
-      <div class="sentiment-empty-state">Scroll to analyze tweets in viewport</div>
+      <div class="sentiment-empty-state">Analyzing visible tweets...</div>
     </div>
   `;
 
@@ -343,6 +343,33 @@ function createSidebar() {
     // Save state
     chrome.storage.local.set({ sidebarCollapsed: sidebarState.isCollapsed });
   });
+
+  // Event delegation for tweet card clicks
+  const content = sidebar.querySelector('#sentiment-sidebar-content');
+  if (content) {
+    content.addEventListener('click', (e) => {
+      // Handle action button clicks
+      if (e.target.classList.contains('sentiment-action-btn')) {
+        return; // Action buttons handle their own clicks
+      }
+      
+      // Find the clicked tweet card
+      const card = e.target.closest('.sentiment-tweet-card');
+      if (!card) return;
+      
+      const tweetTextAttr = card.getAttribute('data-tweet-text');
+      if (!tweetTextAttr) return;
+      
+      // Get result from state
+      const cardResult = sidebarState.analyzedTweets.get(tweetTextAttr);
+      if (!cardResult) return;
+      
+      // Toggle expansion
+      const isExpanded = card.querySelector('.sentiment-tweet-expanded');
+      const cardId = card.id;
+      card.outerHTML = createTweetCard(tweetTextAttr, cardResult, !isExpanded);
+    });
+  }
 
   return sidebar;
 }
@@ -371,7 +398,12 @@ function createTweetCard(tweetText, result, isExpanded = false) {
 
   let errorMessage = null;
 
-  if (result && result.error) {
+  if (result && result.loading) {
+    statusClass = 'loading';
+    statusIcon = 'loading';
+    statusText = 'Analyzing...';
+    confidence = '';
+  } else if (result && result.error) {
     statusClass = 'loading';
     statusIcon = 'loading';
     statusText = 'Error';
@@ -448,27 +480,7 @@ function addTweetCard(tweetText, result) {
     content.insertAdjacentHTML('afterbegin', cardHTML);
   }
 
-  // Add click handler to toggle expansion
-  const newCard = document.getElementById(cardId);
-  if (newCard) {
-    newCard.addEventListener('click', (e) => {
-      if (e.target.classList.contains('sentiment-action-btn')) {
-        return; // Don't toggle if clicking action button
-      }
-      const isExpanded = newCard.querySelector('.sentiment-tweet-expanded');
-      newCard.outerHTML = createTweetCard(tweetText, result, !isExpanded);
-      
-      // Re-attach click handler
-      const updatedCard = document.getElementById(cardId);
-      if (updatedCard) {
-        updatedCard.addEventListener('click', (e) => {
-          if (e.target.classList.contains('sentiment-action-btn')) return;
-          const expanded = updatedCard.querySelector('.sentiment-tweet-expanded');
-          updatedCard.outerHTML = createTweetCard(tweetText, result, !expanded);
-        });
-      }
-    });
-  }
+  // Click handlers are handled via event delegation set up in createSidebar()
 
   // Update stats
   updateStats();
@@ -553,6 +565,43 @@ function queueTweetForAnalysis(tweetElement) {
   processAnalysisQueue();
 }
 
+// Collect all visible tweets in the viewport
+function collectAllVisibleTweets() {
+  const tweetSelectors = [
+    'article[data-testid="tweet"]',
+    'article[role="article"]'
+  ];
+  
+  const visibleTweets = [];
+  const viewportHeight = window.innerHeight;
+  const viewportWidth = window.innerWidth;
+  
+  for (let selector of tweetSelectors) {
+    document.querySelectorAll(selector).forEach(tweet => {
+      const rect = tweet.getBoundingClientRect();
+      // Check if tweet is in viewport (with small margin for better detection)
+      if (rect.top < viewportHeight + 100 && rect.bottom > -100 && 
+          rect.left < viewportWidth + 100 && rect.right > -100) {
+        // Only add if we can extract text from it
+        if (getTweetText(tweet)) {
+          visibleTweets.push(tweet);
+        }
+      }
+    });
+  }
+  
+  // Remove duplicates based on tweet text
+  const seenTexts = new Set();
+  return visibleTweets.filter(tweet => {
+    const text = getTweetText(tweet);
+    if (!text || seenTexts.has(text)) {
+      return false;
+    }
+    seenTexts.add(text);
+    return true;
+  });
+}
+
 // Initialize IntersectionObserver for viewport detection
 function initViewportObserver() {
   const observer = new IntersectionObserver((entries) => {
@@ -609,6 +658,16 @@ function initSidebar() {
     if (document.querySelector('article[data-testid="tweet"]') || document.body) {
       clearInterval(checkTwitterLoaded);
       createSidebar();
+      
+      // Analyze all visible tweets on initial load
+      setTimeout(() => {
+        const visibleTweets = collectAllVisibleTweets();
+        console.log(`📊 Found ${visibleTweets.length} visible tweets to analyze`);
+        visibleTweets.forEach(tweet => {
+          queueTweetForAnalysis(tweet);
+        });
+      }, 500); // Small delay to ensure sidebar is fully rendered
+      
       initViewportObserver();
     }
   }, 500);
@@ -617,6 +676,16 @@ function initSidebar() {
   setTimeout(() => {
     clearInterval(checkTwitterLoaded);
     createSidebar();
+    
+    // Analyze all visible tweets on initial load
+    setTimeout(() => {
+      const visibleTweets = collectAllVisibleTweets();
+      console.log(`📊 Found ${visibleTweets.length} visible tweets to analyze`);
+      visibleTweets.forEach(tweet => {
+        queueTweetForAnalysis(tweet);
+      });
+    }, 500);
+    
     initViewportObserver();
   }, 10000);
 }
@@ -672,6 +741,11 @@ new MutationObserver(() => {
   const url = location.href;
   if (url !== lastUrl) {
     lastUrl = url;
+    // Reset state on navigation
+    sidebarState.analyzedTweets.clear();
+    sidebarState.tweetElements.clear();
+    sidebarState.analysisQueue = [];
+    sidebarState.stats = { safe: 0, warning: 0, critical: 0, total: 0 };
     // Reinitialize sidebar on navigation
     setTimeout(initSidebar, 1000);
   }
