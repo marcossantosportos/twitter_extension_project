@@ -200,7 +200,7 @@ def classify_text():
             top_label, top_score = max(label_to_score.items(), key=lambda kv: kv[1])
 
         # Decision threshold (tunable)
-        threshold = 0.60
+        threshold = 0.75
         is_distress = False
 
         if distress_score is not None:

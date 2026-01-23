@@ -399,7 +399,7 @@ function createTweetCard(tweetText, result, isExpanded = false) {
     statusText = 'Critical';
     // FIX: Safely access detail.top_score
     confidence = (result.detail && result.detail.top_score) ? (result.detail.top_score * 100).toFixed(1) + '%' : 'N/A';
-  } else if (result && result.detail && result.detail.top_score && result.detail.top_score > 0.45) {
+  } else if (result && result.detail && result.detail.top_score && result.detail.top_score > 0.50) {
     statusClass = 'warning';
     statusIcon = 'warning';
     statusText = 'Warning';
@@ -506,7 +506,7 @@ async function processAnalysisQueue() {
       // Update stats
       if (result && result.label === true) {
         sidebarState.stats.critical++;
-      } else if (result && result.detail && result.detail.top_score > 0.45) {
+      } else if (result && result.detail && result.detail.top_score > 0.50) {
         sidebarState.stats.warning++;
       } else {
         sidebarState.stats.safe++;
