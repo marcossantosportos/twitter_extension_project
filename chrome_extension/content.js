@@ -381,33 +381,62 @@ function createTweetCard(tweetText, result, isExpanded = false) {
   let statusText = 'Safe';
   let confidence = 'N/A';
 
-  let errorMessage = null;
+let errorMessage = null;
 
-  if (result && result.loading) {
-    statusClass = 'loading';
-    statusIcon = 'loading';
-    statusText = 'Analyzing...';
-    confidence = '';
-  } else if (result && result.error) {
-    statusClass = 'loading';
-    statusIcon = 'loading';
-    statusText = 'Error';
-    errorMessage = result.detail || result.error || 'Unknown error';
-  } else if (result && result.label === true) {
-    statusClass = 'critical';
-    statusIcon = 'critical';
-    statusText = 'Critical';
-    // FIX: Safely access detail.top_score
-    confidence = (result.detail && result.detail.top_score) ? (result.detail.top_score * 100).toFixed(1) + '%' : 'N/A';
-  } else if (result && result.detail && result.detail.top_score && result.detail.top_score > 0.50) {
-    statusClass = 'warning';
-    statusIcon = 'warning';
-    statusText = 'Warning';
-    confidence = (result.detail.top_score * 100).toFixed(1) + '%';
+if (result && result.loading) {
+  statusClass = 'loading';
+  statusIcon = 'loading';
+  statusText = 'Analyzing...';
+  confidence = '';
+} else if (result && result.error) {
+  statusClass = 'loading';
+  statusIcon = 'loading';
+  statusText = 'Error';
+  errorMessage = result.detail || result.error || 'Unknown error';
+} else if (result && result.detail) {
+  const score = result.detail.top_score ?? null;
+  const label = result.label ?? false;
+
+  if (score !== null) {
+    if (score <= 0.5) {
+      // SAFE
+      statusClass = 'safe';
+      statusIcon = 'safe';
+      statusText = 'Safe';
+      confidence = (score * 100).toFixed(1) + '%';
+    } else if (score > 0.5 && score < 0.75 && label === false) {
+      // WARNING
+      statusClass = 'warning';
+      statusIcon = 'warning';
+      statusText = 'Warning';
+      confidence = (score * 100).toFixed(1) + '%';
+    } else if (score >= 0.75 && label === true) {
+      // CRITICAL
+      statusClass = 'critical';
+      statusIcon = 'critical';
+      statusText = 'Critical';
+      confidence = (score * 100).toFixed(1) + '%';
+    } else {
+      // Fallback (borderline cases not matching)
+      statusClass = 'safe';
+      statusIcon = 'safe';
+      statusText = 'Safe';
+      confidence = (score * 100).toFixed(1) + '%';
+    }
   } else {
-    // Safe tweets
-    confidence = (result?.detail?.top_score) ? (result.detail.top_score * 100).toFixed(1) + '%' : 'N/A';
+    // No score available
+    statusClass = 'safe';
+    statusIcon = 'safe';
+    statusText = 'Safe';
+    confidence = 'N/A';
   }
+} else {
+  // No result object at all
+  statusClass = 'safe';
+  statusIcon = 'safe';
+  statusText = 'Safe';
+  confidence = 'N/A';
+}
 
   const preview = tweetText.length > 50 ? tweetText.substring(0, 50) + '...' : tweetText;
   const expandedContent = isExpanded ? `
@@ -503,15 +532,23 @@ async function processAnalysisQueue() {
       sidebarState.analyzedTweets.set(tweetText, result);
       sidebarState.tweetElements.set(tweetElement, { text: tweetText, result });
 
-      // Update stats
-      if (result && result.label === true) {
-        sidebarState.stats.critical++;
-      } else if (result && result.detail && result.detail.top_score > 0.50) {
-        sidebarState.stats.warning++;
-      } else {
-        sidebarState.stats.safe++;
-      }
-      sidebarState.stats.total++;
+// Update stats
+if (result && result.detail) {
+  const score = result.detail.top_score;
+  const label = result.label;
+
+  if (score <= 0.50) {
+    sidebarState.stats.safe++;
+  } else if (score > 0.50 && score < 0.75 && label === false) {
+    sidebarState.stats.warning++;
+  } else if (score >= 0.75 && label === true) {
+    sidebarState.stats.critical++;
+  } else {
+    // Optional: handle cases that don't fit neatly
+    sidebarState.stats.safe++;
+  }
+}
+sidebarState.stats.total++;
 
       // Update card with result
       addTweetCard(tweetText, result);
