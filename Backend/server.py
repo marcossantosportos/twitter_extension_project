@@ -1,5 +1,6 @@
 import torch
 import re
+import uuid
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from transformers import pipeline
@@ -13,6 +14,9 @@ app = Flask(__name__)
 CORS(app)
 
 print("Starting Flask server and loading the model...")
+
+# Session storage for chatbot conversations
+chatbot_sessions = {}
 
 # ============================
 # Step 2: Load Model and Create Pipeline (Done once on startup)
@@ -41,7 +45,85 @@ except Exception as e:
     classifier = None
 
 # ============================
-# Step 3: Create the API Endpoint for Classification
+# Step 3: Chatbot Endpoints
+# ============================
+@app.route("/start_chat", methods=["POST"])
+def start_chat():
+    """Initialize a new chatbot session"""
+    try:
+        session_id = str(uuid.uuid4())
+        chatbot_sessions[session_id] = {
+            "state": "greeting",
+            "step": 0
+        }
+        return jsonify({
+            "session_id": session_id,
+            "message": "Hey, I'm here with you.",
+            "next_step": "ask_whats_on_mind"
+        })
+    except Exception as e:
+        print(f"Error starting chat: {e}")
+        return jsonify({"error": "Failed to start chat"}), 500
+
+@app.route("/chat", methods=["POST"])
+def chat():
+    """Handle chatbot conversation"""
+    try:
+        data = request.get_json()
+        session_id = data.get("session_id")
+        _ = data.get("message", "").strip()  # User message (tracked for state)
+        
+        if not session_id or session_id not in chatbot_sessions:
+            return jsonify({"error": "Invalid session"}), 400
+        
+        session = chatbot_sessions[session_id]
+        state = session["state"]
+        step = session["step"]
+        
+        # Scripted flow implementation
+        if state == "greeting" or step == 0:
+            # After greeting, ask what's on mind
+            session["state"] = "waiting_for_input"
+            session["step"] = 1
+            return jsonify({
+                "message": "What's been on your mind lately?",
+                "waiting_for_input": True
+            })
+        
+        elif state == "waiting_for_input" or step == 1:
+            # User responded, show reassurance
+            session["state"] = "reassurance"
+            session["step"] = 2
+            return jsonify({
+                "message": "You don't need to have everything figured out",
+                "next_delay": 2000
+            })
+        
+        elif state == "reassurance" or step == 2:
+            # Show final message
+            session["state"] = "final"
+            session["step"] = 3
+            return jsonify({
+                "message": "Sometimes a small connection or a little burst of music can make moments like this feel lighter.",
+                "next_delay": 2000,
+                "show_buttons": True
+            })
+        
+        elif state == "final" or step == 3:
+            # Conversation complete
+            return jsonify({
+                "message": "",
+                "complete": True
+            })
+        
+        return jsonify({"error": "Unknown state"}), 400
+        
+    except Exception as e:
+        print(f"Error in chat: {e}")
+        return jsonify({"error": "Failed to process chat"}), 500
+
+# ============================
+# Step 4: Create the API Endpoint for Classification
 # ============================
 @app.route("/classify", methods=["POST"])
 def classify_text():
@@ -144,7 +226,7 @@ def classify_text():
         return jsonify({"error": "Failed to process the request."}), 500
 
 # ============================
-# Step 4: Run the Flask Server
+# Step 5: Run the Flask Server
 # ============================
 if __name__ == "__main__":
     # Run the app on localhost at port 5000

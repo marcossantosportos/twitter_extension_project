@@ -181,11 +181,103 @@
       height: 200px;
       border: none;
     }
+    #chatbot-container {
+      display: none;
+      margin-top: 12px;
+      padding: 12px;
+      background-color: #1a1a1a;
+      border-radius: 12px;
+      border: 1px solid #2a2a2a;
+    }
+    #chatbot-container.active {
+      display: block;
+    }
+    #chatbot-messages {
+      max-height: 200px;
+      overflow-y: auto;
+      margin-bottom: 12px;
+      padding: 8px;
+      background-color: #0a0a0a;
+      border-radius: 8px;
+    }
+    .chatbot-message {
+      margin-bottom: 10px;
+      padding: 8px;
+      border-radius: 6px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .chatbot-message.bot {
+      background-color: #2a2a2a;
+      color: #ffffff;
+    }
+    .chatbot-message.user {
+      background-color: #1da1f2;
+      color: #ffffff;
+      text-align: right;
+    }
+    #chatbot-input-container {
+      display: none;
+      margin-bottom: 12px;
+    }
+    #chatbot-input-container.active {
+      display: block;
+    }
+    #chatbot-input {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #2a2a2a;
+      border-radius: 6px;
+      background-color: #0a0a0a;
+      color: #ffffff;
+      font-size: 13px;
+      box-sizing: border-box;
+    }
+    #chatbot-input:focus {
+      outline: none;
+      border-color: #1da1f2;
+    }
+    #chatbot-send-btn {
+      margin-top: 8px;
+      padding: 6px 12px;
+      background-color: #1da1f2;
+      color: #ffffff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    #chatbot-send-btn:hover {
+      background-color: #1a8cd8;
+    }
+    #chatbot-action-buttons {
+      display: none;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    #chatbot-action-buttons.active {
+      display: flex;
+    }
+    #chatbot-action-buttons button {
+      flex: 1;
+    }
   </style>
 </head>
 <body>
   <h3>Sentiment Tool</h3>
   <div id="result">Loading analysis...</div>
+  <div id="chatbot-container">
+    <div id="chatbot-messages"></div>
+    <div id="chatbot-input-container">
+      <input type="text" id="chatbot-input" placeholder="Type your response...">
+      <button id="chatbot-send-btn">Send</button>
+    </div>
+    <div id="chatbot-action-buttons">
+      <button class="call-btn" id="chatbot-message-btn">💬 Message someone close</button>
+      <button class="song-btn" id="chatbot-song-btn">Play an upbeat song</button>
+    </div>
+  </div>
   <div id="music-player">
     <iframe 
       id="youtube-player"

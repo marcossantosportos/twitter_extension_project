@@ -24,6 +24,96 @@ chrome.runtime.onStartup.addListener(() => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log("📩 Background received message:", message);
 
+  // NEW: Handle classification requests from content script
+  if (message.action === "classifyTweet") {
+    const tweetText = message.text;
+    
+    if (!tweetText || !tweetText.trim()) {
+      sendResponse({ 
+        label: false, 
+        error: "empty_tweet", 
+        detail: "Tweet text is empty or invalid." 
+      });
+      return false;
+    }
+
+    fetch("http://localhost:5000/classify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: tweetText })
+    })
+      .then(response => {
+        if (!response.ok) {
+          return response.json().catch(() => ({
+            error: `HTTP ${response.status}: ${response.statusText}`
+          }));
+        }
+        return response.json();
+      })
+      .then(result => {
+        if (result.error) {
+          console.error("Backend returned error:", result.error);
+          sendResponse({ 
+            label: false, 
+            error: "backend_error", 
+            detail: result.error 
+          });
+        } else {
+          sendResponse(result);
+        }
+      })
+      .catch(err => {
+        console.error("Classification failed:", err);
+        if (err.name === 'TypeError' && err.message.includes('fetch')) {
+          sendResponse({ 
+            label: false, 
+            error: "connection_failed", 
+            detail: "Cannot connect to server. Make sure the backend is running on http://localhost:5000" 
+          });
+        } else {
+          sendResponse({ 
+            label: false, 
+            error: "classification_failed", 
+            detail: err.message || "Unknown error occurred" 
+          });
+        }
+      });
+
+    return true; // Keep message channel open for async response
+  }
+
+  // NEW: Handle chatbot requests from popup
+  if (message.action === "chatbotMessage") {
+    const { endpoint, data } = message;
+    
+    fetch(`http://localhost:5000/${endpoint}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    })
+      .then(response => {
+        if (!response.ok) {
+          return response.json().catch(() => ({
+            error: `HTTP ${response.status}: ${response.statusText}`
+          }));
+        }
+        return response.json();
+      })
+      .then(result => {
+        sendResponse(result);
+      })
+      .catch(err => {
+        console.error("Chatbot request failed:", err);
+        sendResponse({ 
+          error: "connection_failed", 
+          detail: "Cannot connect to server. Make sure the backend is running on http://localhost:5000" 
+        });
+      });
+
+    return true; // Keep message channel open for async response
+  }
+
+  // EXISTING: getTweet handler (keep this!)
   if (message.action === "getTweet") {
     // Get the active tab
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {

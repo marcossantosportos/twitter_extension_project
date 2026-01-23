@@ -226,7 +226,7 @@ function getTweetText(tweetElement) {
   return null;
 }
 
-// Classify tweet via backend API
+// Classify tweet via background script (to bypass CORS)
 async function classifyTweet(tweetText) {
   try {
     // Validate tweet text
@@ -234,53 +234,38 @@ async function classifyTweet(tweetText) {
       return { label: false, error: "empty_tweet", detail: "Tweet text is empty or invalid." };
     }
 
-    const response = await fetch("http://localhost:5000/classify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: tweetText })
+    // Send message to background script to do the classification
+    return new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage(
+        { action: "classifyTweet", text: tweetText },
+        (response) => {
+          if (chrome.runtime.lastError) {
+            console.error("Runtime error:", chrome.runtime.lastError);
+            resolve({ 
+              label: false, 
+              error: "connection_failed", 
+              detail: chrome.runtime.lastError.message 
+            });
+            return;
+          }
+
+          if (response && response.error) {
+            resolve(response);
+            return;
+          }
+
+          resolve(response);
+        }
+      );
     });
-
-    // Check if response is OK
-    if (!response.ok) {
-      // Try to get error message from response
-      let errorData;
-      try {
-        errorData = await response.json();
-      } catch (e) {
-        errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
-      }
-      console.error("Server error response:", response.status, errorData);
-      return { label: false, error: "server_error", detail: errorData.error || `Server returned ${response.status}` };
-    }
-
-    // Parse JSON for successful responses
-    const result = await response.json();
-    
-    // Check if backend returned an error in the response body
-    // (Even with HTTP 200, backend might return { error: ... } in some cases)
-    if (result.error) {
-      console.error("Backend returned error:", result.error);
-      return { label: false, error: "backend_error", detail: result.error };
-    }
-
-    // Ensure result has expected structure
-    if (!result || typeof result !== 'object') {
-      return { label: false, error: "invalid_response", detail: "Invalid response format from server" };
-    }
-
-    // Valid response - return as-is
-    return result;
     
   } catch (err) {
     console.error("Classification failed:", err);
-    // More specific error messages
-    if (err.name === 'TypeError' && err.message.includes('fetch')) {
-      return { label: false, error: "connection_failed", detail: "Cannot connect to server. Make sure the backend is running on http://localhost:5000" };
-    }
-    if (err instanceof SyntaxError) {
-      return { label: false, error: "parse_error", detail: "Server returned invalid JSON response" };
-    }
-    return { label: false, error: "classification_failed", detail: err.message || "Unknown error occurred" };
+    return { 
+      label: false, 
+      error: "classification_failed", 
+      detail: err.message || "Unknown error occurred" 
+    };
   }
 }
 
@@ -414,7 +399,7 @@ function createTweetCard(tweetText, result, isExpanded = false) {
     statusText = 'Critical';
     // FIX: Safely access detail.top_score
     confidence = (result.detail && result.detail.top_score) ? (result.detail.top_score * 100).toFixed(1) + '%' : 'N/A';
-  } else if (result && result.detail && result.detail.top_score && result.detail.top_score > 0.4) {
+  } else if (result && result.detail && result.detail.top_score && result.detail.top_score > 0.45) {
     statusClass = 'warning';
     statusIcon = 'warning';
     statusText = 'Warning';
@@ -521,7 +506,7 @@ async function processAnalysisQueue() {
       // Update stats
       if (result && result.label === true) {
         sidebarState.stats.critical++;
-      } else if (result && result.detail && result.detail.top_score > 0.4) {
+      } else if (result && result.detail && result.detail.top_score > 0.45) {
         sidebarState.stats.warning++;
       } else {
         sidebarState.stats.safe++;
@@ -549,18 +534,22 @@ async function processAnalysisQueue() {
 // Queue tweet for analysis
 function queueTweetForAnalysis(tweetElement) {
   const tweetText = getTweetText(tweetElement);
-  if (!tweetText) return;
+  if (!tweetText) {
+    console.log("❌ No text extracted from tweet element");
+    return;
+  }
 
-  // Skip if already analyzed
   if (sidebarState.analyzedTweets.has(tweetText)) {
+    console.log("⏭️ Tweet already analyzed, skipping");
     return;
   }
 
-  // Skip if already in queue
   if (sidebarState.analysisQueue.some(item => item.tweetText === tweetText)) {
+    console.log("⏭️ Tweet already in queue, skipping");
     return;
   }
 
+  console.log("✅ Queuing tweet for analysis:", tweetText.substring(0, 50) + "...");
   sidebarState.analysisQueue.push({ tweetText, tweetElement });
   processAnalysisQueue();
 }

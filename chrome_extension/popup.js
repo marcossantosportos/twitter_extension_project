@@ -215,6 +215,279 @@ async function analyzeOnLoad() {
 
   console.log("🔄 Popup sending message to background script...");
 
+  // Chatbot functions - defined at the top level of analyzeOnLoad
+  let chatbotSessionId = null;
+  let chatbotStep = 0;
+
+  async function startChatbotFlow() {
+    const chatbotContainer = document.getElementById('chatbot-container');
+    const chatbotMessages = document.getElementById('chatbot-messages');
+
+    // Show chatbot container
+    chatbotContainer.classList.add('active');
+    chatbotMessages.innerHTML = '';
+
+    try {
+      // Start chat session
+      const response = await fetch("http://localhost:5000/start_chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({})
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to start chat");
+      }
+
+      const data = await response.json();
+      chatbotSessionId = data.session_id;
+
+      // Display first message
+      addChatbotMessage(data.message, 'bot');
+      chatbotStep = 0;
+
+      // Wait 2 seconds, then show second message
+      setTimeout(async () => {
+        await sendChatMessage("", true); // Trigger next step
+      }, 2000);
+
+    } catch (err) {
+      console.error("Chatbot error:", err);
+      addChatbotMessage("Sorry, I'm having trouble connecting. Please try again.", 'bot');
+    }
+  }
+
+  function addChatbotMessage(text, type) {
+    const chatbotMessages = document.getElementById('chatbot-messages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `chatbot-message ${type}`;
+    messageDiv.textContent = text;
+    chatbotMessages.appendChild(messageDiv);
+    chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
+  }
+
+  async function sendChatMessage(userMessage = "", autoTrigger = false) {
+    if (!chatbotSessionId && !autoTrigger) {
+      return;
+    }
+
+    const chatbotInputContainer = document.getElementById('chatbot-input-container');
+    const chatbotInput = document.getElementById('chatbot-input');
+    const chatbotActionButtons = document.getElementById('chatbot-action-buttons');
+
+    try {
+      // If user sent a message, display it
+      if (userMessage && !autoTrigger) {
+        addChatbotMessage(userMessage, 'user');
+        chatbotInput.value = '';
+      }
+
+      // Send to backend
+      const response = await fetch("http://localhost:5000/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_id: chatbotSessionId,
+          message: userMessage || ""
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to send message");
+      }
+
+      const data = await response.json();
+      chatbotStep++;
+
+      // Handle response
+      if (data.waiting_for_input) {
+        // Show message and input field
+        if (data.message) {
+          addChatbotMessage(data.message, 'bot');
+        }
+        chatbotInputContainer.classList.add('active');
+        chatbotInput.focus();
+      } else if (data.message) {
+        // Display bot message
+        addChatbotMessage(data.message, 'bot');
+        
+        if (data.show_buttons) {
+          // Wait 2 seconds, then show buttons
+          setTimeout(() => {
+            chatbotActionButtons.classList.add('active');
+            chatbotInputContainer.classList.remove('active');
+          }, data.next_delay || 2000);
+        } else if (data.next_delay && chatbotStep < 4) {
+          // Continue to next step after delay
+          setTimeout(async () => {
+            await sendChatMessage("", true);
+          }, data.next_delay);
+        }
+      } else if (data.complete) {
+        chatbotInputContainer.classList.remove('active');
+      }
+
+    } catch (err) {
+      console.error("Chat error:", err);
+      addChatbotMessage("Sorry, something went wrong. Please try again.", 'bot');
+    }
+  }
+
+  // Play a random upbeat song.
+  const playRandomSong = (buttonEl) => {
+    if (!calmingSongs.length) return;
+    const track = calmingSongs[Math.floor(Math.random() * calmingSongs.length)];
+
+    const originalText = buttonEl.textContent;
+    buttonEl.textContent = `Opening: ${track.title}`;
+    if (track.videoId) {
+      // Direct watch URL so YouTube loads the player and starts playback
+      globalThis.open(`https://www.youtube.com/watch?v=${track.videoId}&autoplay=1`, "_blank");
+    } else {
+      // Fallback to search
+      const query = encodeURIComponent(track.title);
+      globalThis.open(`https://www.youtube.com/results?search_query=${query}`, "_blank");
+    }
+    setTimeout(() => {
+      buttonEl.textContent = originalText;
+    }, 1500);
+  };
+
+  // Message close one function - opens WhatsApp Web
+  function messageCloseOne() {
+    const emergencyNumber = "9637124027";
+    const messageText = encodeURIComponent("This user needs your help. Please reach out to them.");
+    
+    // Copy number to clipboard
+    let copied = false;
+    (async () => {
+      try {
+        await navigator.clipboard.writeText(emergencyNumber);
+        copied = true;
+      } catch (err) {
+        console.warn("Failed to copy to clipboard:", err);
+        // Fallback: use execCommand for older browsers
+        try {
+          const textArea = document.createElement('textarea');
+          textArea.value = emergencyNumber;
+          textArea.style.position = 'fixed';
+          textArea.style.opacity = '0';
+          document.body.appendChild(textArea);
+          textArea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textArea);
+          copied = true;
+        } catch (e) {
+          console.warn("Fallback copy also failed:", e);
+        }
+      }
+      
+      // Open WhatsApp Web with pre-filled message
+      const whatsappUrl = `https://wa.me/${emergencyNumber.replace(/[^0-9]/g, '')}?text=${messageText}`;
+      globalThis.open(whatsappUrl, '_blank');
+      
+      // Show feedback
+      showMessageFeedback(emergencyNumber, copied);
+    })();
+  }
+
+  // Set up chatbot event listeners
+  function setupChatbotListeners() {
+    const chatbotSendBtn = document.getElementById('chatbot-send-btn');
+    const chatbotInput = document.getElementById('chatbot-input');
+    const chatbotMessageBtn = document.getElementById('chatbot-message-btn');
+    const chatbotSongBtn = document.getElementById('chatbot-song-btn');
+
+    if (chatbotSendBtn) {
+      chatbotSendBtn.addEventListener('click', () => {
+        const message = chatbotInput.value.trim();
+        if (message) {
+          sendChatMessage(message);
+        }
+      });
+    }
+
+    if (chatbotInput) {
+      chatbotInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          const message = chatbotInput.value.trim();
+          if (message) {
+            sendChatMessage(message);
+          }
+        }
+      });
+    }
+
+    if (chatbotMessageBtn) {
+      chatbotMessageBtn.addEventListener('click', messageCloseOne);
+    }
+
+    if (chatbotSongBtn) {
+      chatbotSongBtn.addEventListener('click', () => {
+        const songBtn = document.getElementById('chatbot-song-btn');
+        playRandomSong(songBtn);
+      });
+    }
+  }
+
+  // ⭐ Call setupChatbotListeners here, after it's defined
+  setupChatbotListeners();
+
+  // Helper function to show message feedback
+  function showMessageFeedback(number, copied) {
+    const resultDiv = document.getElementById('result');
+    if (!resultDiv) return;
+    
+    // Remove any existing feedback
+    const existingFeedback = resultDiv.querySelector('.call-feedback');
+    if (existingFeedback) {
+      existingFeedback.remove();
+    }
+    
+    const feedback = document.createElement('div');
+    feedback.className = 'call-feedback';
+    feedback.style.cssText = 'margin-top: 12px; padding: 12px; background-color: #1a1a1a; border: 2px solid #dc3545; border-radius: 8px; font-size: 13px; color: #ffffff; text-align: center;';
+    
+    let message = '';
+    if (copied) {
+      message = '<div style="font-weight: bold; margin-bottom: 8px; color: #28a745;">✓ Number copied to clipboard!</div>';
+    } else {
+      message = '<div style="font-weight: bold; margin-bottom: 8px;">💬 Emergency Contact</div>';
+    }
+    
+    const instructions = `<div style="font-size: 11px; color: #888; margin-top: 8px; line-height: 1.4;">
+      WhatsApp Web should have opened in a new tab with a pre-filled message.<br>
+      ${copied ? 'Number is also copied to clipboard.' : ''}
+    </div>`;
+    
+    // Set the HTML content first
+    feedback.innerHTML = `
+      ${message}
+      <div style="font-size: 22px; font-weight: bold; margin: 12px 0; color: #1da1f2; letter-spacing: 3px; font-family: monospace;">${number}</div>
+      ${instructions}
+    `;
+    
+    // Add a button to open WhatsApp again if needed
+    const whatsappLink = document.createElement('a');
+    const messageText = encodeURIComponent("This user needs your help. Please reach out to them.");
+    whatsappLink.href = `https://wa.me/${number.replace(/[^0-9]/g, '')}?text=${messageText}`;
+    whatsappLink.target = '_blank';
+    whatsappLink.style.cssText = 'display: inline-block; margin-top: 10px; padding: 10px 20px; background-color: #25D366; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer;';
+    whatsappLink.textContent = '💬 Open WhatsApp Again';
+    
+    // Add the button to the feedback div
+    feedback.appendChild(whatsappLink);
+    
+    resultDiv.appendChild(feedback);
+    
+    // Remove feedback after 10 seconds
+    setTimeout(() => {
+      if (feedback.parentNode) {
+        feedback.parentNode.removeChild(feedback);
+      }
+    }, 10000);
+  }
+
   // Send message to background script which will relay to content script
   chrome.runtime.sendMessage({ action: "getTweet" }, async (response) => {
     console.log("📨 Popup received response:", response);
@@ -253,159 +526,6 @@ async function analyzeOnLoad() {
         </div>
       `;
     };
-    
-    // Play a random upbeat song.
-    // NOTE: YouTube often blocks iframe playback from `chrome-extension://` origins
-    // (shows "Video player configuration error", e.g. Error 153). Open in a normal tab.
-    const playRandomSong = (buttonEl) => {
-      if (!calmingSongs.length) return;
-      const track = calmingSongs[Math.floor(Math.random() * calmingSongs.length)];
-
-      const originalText = buttonEl.textContent;
-      buttonEl.textContent = `Opening: ${track.title}`;
-      if (track.videoId) {
-        // Direct watch URL so YouTube loads the player and starts playback
-        globalThis.open(`https://www.youtube.com/watch?v=${track.videoId}&autoplay=1`, "_blank");
-      } else {
-        // Fallback to search
-        const query = encodeURIComponent(track.title);
-        globalThis.open(`https://www.youtube.com/results?search_query=${query}`, "_blank");
-      }
-      setTimeout(() => {
-        buttonEl.textContent = originalText;
-      }, 1500);
-    };
-
-    // Chatbot prompt function
-    function showChatbotPrompt(resultDiv) {
-      const chatbotHTML = `
-        <div id="chatbot-section">
-          <div class="chatbot-message">
-            💬 <strong>Support Assistant:</strong> Would you like to listen to a song or message a close one?
-          </div>
-          <div class="chatbot-buttons">
-            <button class="call-btn" id="message-close-one-chatbot">💬 Message Close One</button>
-            <button class="song-btn" id="play-song-btn-chatbot">Play an upbeat song</button>
-          </div>
-        </div>
-      `;
-      
-      resultDiv.insertAdjacentHTML('beforeend', chatbotHTML);
-
-      // Message Close One button handler in chatbot
-      const messageBtnChatbot = document.getElementById('message-close-one-chatbot');
-      if (messageBtnChatbot) {
-        messageBtnChatbot.addEventListener('click', messageCloseOne);
-      }
-
-      // Song button handler in chatbot
-      const songBtnChatbot = document.getElementById('play-song-btn-chatbot');
-      if (songBtnChatbot) {
-        songBtnChatbot.addEventListener('click', () => playRandomSong(songBtnChatbot));
-      }
-    }
-
-    // Play calming music.
-    // NOTE: YouTube often blocks iframe playback from `chrome-extension://` origins
-    // (shows "Video player configuration error", e.g. Error 153). Open in a normal tab.
-    function playCalmingMusic() {
-      // Use a calming YouTube video (Lofi Hip Hop - 24/7 live stream)
-      const videoId = "jfKfPfyJRdk"; // Lofi Hip Hop Radio
-      globalThis.open(`https://www.youtube.com/watch?v=${videoId}`, "_blank");
-    }
-
-    // Message close one function - opens WhatsApp Web
-    function messageCloseOne() {
-      const emergencyNumber = "9637124027";
-      const messageText = encodeURIComponent("This user needs your help. Please reach out to them.");
-      
-      // Copy number to clipboard
-      let copied = false;
-      (async () => {
-        try {
-          await navigator.clipboard.writeText(emergencyNumber);
-          copied = true;
-        } catch (err) {
-          console.warn("Failed to copy to clipboard:", err);
-          // Fallback: use execCommand for older browsers
-          try {
-            const textArea = document.createElement('textarea');
-            textArea.value = emergencyNumber;
-            textArea.style.position = 'fixed';
-            textArea.style.opacity = '0';
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-            copied = true;
-          } catch (e) {
-            console.warn("Fallback copy also failed:", e);
-          }
-        }
-        
-        // Open WhatsApp Web with pre-filled message
-        const whatsappUrl = `https://wa.me/${emergencyNumber.replace(/[^0-9]/g, '')}?text=${messageText}`;
-        globalThis.open(whatsappUrl, '_blank');
-        
-        // Show feedback
-        showMessageFeedback(emergencyNumber, copied);
-      })();
-    }
-    
-    // Helper function to show message feedback
-    function showMessageFeedback(number, copied) {
-      const resultDiv = document.getElementById('result');
-      if (!resultDiv) return;
-      
-      // Remove any existing feedback
-      const existingFeedback = resultDiv.querySelector('.call-feedback');
-      if (existingFeedback) {
-        existingFeedback.remove();
-      }
-      
-      const feedback = document.createElement('div');
-      feedback.className = 'call-feedback';
-      feedback.style.cssText = 'margin-top: 12px; padding: 12px; background-color: #1a1a1a; border: 2px solid #dc3545; border-radius: 8px; font-size: 13px; color: #ffffff; text-align: center;';
-      
-      let message = '';
-      if (copied) {
-        message = '<div style="font-weight: bold; margin-bottom: 8px; color: #28a745;">✓ Number copied to clipboard!</div>';
-      } else {
-        message = '<div style="font-weight: bold; margin-bottom: 8px;">💬 Emergency Contact</div>';
-      }
-      
-      const instructions = `<div style="font-size: 11px; color: #888; margin-top: 8px; line-height: 1.4;">
-        WhatsApp Web should have opened in a new tab with a pre-filled message.<br>
-        ${copied ? 'Number is also copied to clipboard.' : ''}
-      </div>`;
-      
-      // Set the HTML content first
-      feedback.innerHTML = `
-        ${message}
-        <div style="font-size: 22px; font-weight: bold; margin: 12px 0; color: #1da1f2; letter-spacing: 3px; font-family: monospace;">${number}</div>
-        ${instructions}
-      `;
-      
-      // Add a button to open WhatsApp again if needed
-      const whatsappLink = document.createElement('a');
-      const messageText = encodeURIComponent("This user needs your help. Please reach out to them.");
-      whatsappLink.href = `https://wa.me/${number.replace(/[^0-9]/g, '')}?text=${messageText}`;
-      whatsappLink.target = '_blank';
-      whatsappLink.style.cssText = 'display: inline-block; margin-top: 10px; padding: 10px 20px; background-color: #25D366; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer;';
-      whatsappLink.textContent = '💬 Open WhatsApp Again';
-      
-      // Add the button to the feedback div
-      feedback.appendChild(whatsappLink);
-      
-      resultDiv.appendChild(feedback);
-      
-      // Remove feedback after 10 seconds
-      setTimeout(() => {
-        if (feedback.parentNode) {
-          feedback.parentNode.removeChild(feedback);
-        }
-      }, 10000);
-    }
 
     if (!clf || clf.label !== true) {
       // Show debug info if available
@@ -476,9 +596,9 @@ async function analyzeOnLoad() {
           });
         });
 
-        // Show chatbot after 2.5 second delay
+        // Start chatbot flow after showing distress info
         setTimeout(() => {
-          showChatbotPrompt(resultDiv);
+          startChatbotFlow();
         }, 2500);
       },
       async (err) => { // This is the error callback for when geolocation fails or is denied
@@ -519,9 +639,9 @@ async function analyzeOnLoad() {
           });
         });
 
-        // Show chatbot after 2.5 second delay
+        // Start chatbot flow after showing distress info
         setTimeout(() => {
-          showChatbotPrompt(resultDiv);
+          startChatbotFlow();
         }, 2500);
       }
     );
