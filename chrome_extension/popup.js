@@ -24,7 +24,6 @@ const centres = {
   "Bengaluru": "Abhaya Hospital, 17, Dr MH Mari Gowda Road (Hosur Road), Opposite 9th Cross Bus Stop, Wilson Garden, Bengaluru - 560027"
 };
 
-// Map city name variants to canonical keys used in helplines/centres
 const cityAliases = {
   "shimoga": "Shivamogga",
   "shivamogga": "Shivamogga",
@@ -33,8 +32,6 @@ const cityAliases = {
   "bangalore": "Bangalore",
 };
 
-// Upbeat songs (open a direct YouTube watch URL so it starts playing immediately)
-// Note: videoIds are best-effort and can be swapped anytime if you prefer different official uploads.
 const calmingSongs = [
   { title: "Happy — Pharrell Williams", videoId: "ZbZSe6N_BXs" },
   { title: "Best Day of My Life — American Authors", videoId: "Y66j_BUCBMY" },
@@ -60,24 +57,18 @@ function normalizeCityName(name) {
   return cityAliases[key] || trimmed;
 }
 
-// Copy text to clipboard with visual feedback
 async function copyToClipboard(text, buttonElement) {
   try {
     await navigator.clipboard.writeText(text);
-    
-    // Visual feedback
     const originalText = buttonElement.textContent;
     buttonElement.textContent = "Copied!";
     buttonElement.classList.add("copied");
-    
-    // Reset after 2 seconds
     setTimeout(() => {
       buttonElement.textContent = originalText;
       buttonElement.classList.remove("copied");
     }, 2000);
   } catch (err) {
     console.error("Failed to copy:", err);
-    // Fallback for older browsers
     const textArea = document.createElement("textarea");
     textArea.value = text;
     textArea.style.position = "fixed";
@@ -115,7 +106,6 @@ async function getCityFromLocation(lat, lng) {
 }
 
 async function getCityFromIP() {
-  // Try multiple anonymous IP-to-city providers to improve reliability
   const providers = [
     async () => {
       const res = await fetch("https://ipapi.co/json/");
@@ -140,9 +130,7 @@ async function getCityFromIP() {
   for (const provider of providers) {
     try {
       const city = await provider();
-      if (city) {
-        return city;
-      }
+      if (city) return city;
     } catch (err) {
       console.error("IP geolocation provider failed:", err);
     }
@@ -153,7 +141,6 @@ async function getCityFromIP() {
 
 async function classifyTweet(tweetText) {
   try {
-    // Validate tweet text
     if (!tweetText || !tweetText.trim()) {
       return { label: false, error: "empty_tweet", detail: "Tweet text is empty or invalid." };
     }
@@ -164,9 +151,7 @@ async function classifyTweet(tweetText) {
       body: JSON.stringify({ text: tweetText })
     });
 
-    // Check if response is OK
     if (!response.ok) {
-      // Try to get error message from response
       let errorData;
       try {
         errorData = await response.json();
@@ -177,27 +162,21 @@ async function classifyTweet(tweetText) {
       return { label: false, error: "server_error", detail: errorData.error || `Server returned ${response.status}` };
     }
 
-    // Parse JSON for successful responses
     let result = await response.json();
-    
-    // Check if backend returned an error in the response body
-    // (Even with HTTP 200, backend might return { error: ... } in some cases)
+
     if (result.error) {
       console.error("Backend returned error:", result.error);
       return { label: false, error: "backend_error", detail: result.error };
     }
 
-    // Ensure result has expected structure
     if (!result || typeof result !== 'object') {
       return { label: false, error: "invalid_response", detail: "Invalid response format from server" };
     }
 
-    // Valid response - return as-is
     return result;
-    
+
   } catch (err) {
     console.error("Classification failed:", err);
-    // More specific error messages
     if (err.name === 'TypeError' && err.message.includes('fetch')) {
       return { label: false, error: "connection_failed", detail: "Cannot connect to server. Make sure the backend is running on http://localhost:5000" };
     }
@@ -210,12 +189,10 @@ async function classifyTweet(tweetText) {
 
 // This function will now run automatically when the popup opens
 async function analyzeOnLoad() {
-  // Update the UI to show that analysis is in progress
   document.getElementById("result").innerText = "Analyzing tweet...";
+  console.log("🔄 Popup opening...");
 
-  console.log("🔄 Popup sending message to background script...");
-
-  // Chatbot functions - defined at the top level of analyzeOnLoad
+  // Chatbot functions
   let chatbotSessionId = null;
   let chatbotStep = 0;
 
@@ -223,12 +200,10 @@ async function analyzeOnLoad() {
     const chatbotContainer = document.getElementById('chatbot-container');
     const chatbotMessages = document.getElementById('chatbot-messages');
 
-    // Show chatbot container
     chatbotContainer.classList.add('active');
     chatbotMessages.innerHTML = '';
 
     try {
-      // Start chat session
       const response = await fetch("http://localhost:5000/start_chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -242,13 +217,11 @@ async function analyzeOnLoad() {
       const data = await response.json();
       chatbotSessionId = data.session_id;
 
-      // Display first message
       addChatbotMessage(data.message, 'bot');
       chatbotStep = 0;
 
-      // Wait 2 seconds, then show second message
       setTimeout(async () => {
-        await sendChatMessage("", true); // Trigger next step
+        await sendChatMessage("", true);
       }, 2000);
 
     } catch (err) {
@@ -267,22 +240,18 @@ async function analyzeOnLoad() {
   }
 
   async function sendChatMessage(userMessage = "", autoTrigger = false) {
-    if (!chatbotSessionId && !autoTrigger) {
-      return;
-    }
+    if (!chatbotSessionId && !autoTrigger) return;
 
     const chatbotInputContainer = document.getElementById('chatbot-input-container');
     const chatbotInput = document.getElementById('chatbot-input');
     const chatbotActionButtons = document.getElementById('chatbot-action-buttons');
 
     try {
-      // If user sent a message, display it
       if (userMessage && !autoTrigger) {
         addChatbotMessage(userMessage, 'user');
         chatbotInput.value = '';
       }
 
-      // Send to backend
       const response = await fetch("http://localhost:5000/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -299,26 +268,19 @@ async function analyzeOnLoad() {
       const data = await response.json();
       chatbotStep++;
 
-      // Handle response
       if (data.waiting_for_input) {
-        // Show message and input field
-        if (data.message) {
-          addChatbotMessage(data.message, 'bot');
-        }
+        if (data.message) addChatbotMessage(data.message, 'bot');
         chatbotInputContainer.classList.add('active');
         chatbotInput.focus();
       } else if (data.message) {
-        // Display bot message
         addChatbotMessage(data.message, 'bot');
-        
+
         if (data.show_buttons) {
-          // Wait 2 seconds, then show buttons
           setTimeout(() => {
             chatbotActionButtons.classList.add('active');
             chatbotInputContainer.classList.remove('active');
           }, data.next_delay || 2000);
         } else if (data.next_delay && chatbotStep < 4) {
-          // Continue to next step after delay
           setTimeout(async () => {
             await sendChatMessage("", true);
           }, data.next_delay);
@@ -333,18 +295,14 @@ async function analyzeOnLoad() {
     }
   }
 
-  // Play a random upbeat song.
   const playRandomSong = (buttonEl) => {
     if (!calmingSongs.length) return;
     const track = calmingSongs[Math.floor(Math.random() * calmingSongs.length)];
-
     const originalText = buttonEl.textContent;
     buttonEl.textContent = `Opening: ${track.title}`;
     if (track.videoId) {
-      // Direct watch URL so YouTube loads the player and starts playback
       globalThis.open(`https://www.youtube.com/watch?v=${track.videoId}&autoplay=1`, "_blank");
     } else {
-      // Fallback to search
       const query = encodeURIComponent(track.title);
       globalThis.open(`https://www.youtube.com/results?search_query=${query}`, "_blank");
     }
@@ -353,12 +311,9 @@ async function analyzeOnLoad() {
     }, 1500);
   };
 
-  // Message close one function - opens WhatsApp Web
   function messageCloseOne() {
     const emergencyNumber = "9637124027";
     const messageText = encodeURIComponent("This user needs your help. Please reach out to them.");
-    
-    // Copy number to clipboard
     let copied = false;
     (async () => {
       try {
@@ -366,7 +321,6 @@ async function analyzeOnLoad() {
         copied = true;
       } catch (err) {
         console.warn("Failed to copy to clipboard:", err);
-        // Fallback: use execCommand for older browsers
         try {
           const textArea = document.createElement('textarea');
           textArea.value = emergencyNumber;
@@ -381,27 +335,20 @@ async function analyzeOnLoad() {
           console.warn("Fallback copy also failed:", e);
         }
       }
-      
-      // Open WhatsApp Web with pre-filled message
       const whatsappUrl = `https://wa.me/${emergencyNumber.replace(/[^0-9]/g, '')}?text=${messageText}`;
       globalThis.open(whatsappUrl, '_blank');
-      
-      // Show feedback
       showMessageFeedback(emergencyNumber, copied);
     })();
   }
 
-  // Resources functionality
   let resourcesData = null;
 
   async function loadResources() {
-    // Try backend first
     try {
       const response = await fetch("http://localhost:5000/resources", {
         method: "GET",
         headers: { "Content-Type": "application/json" }
       });
-      
       if (response.ok) {
         const data = await response.json();
         resourcesData = data;
@@ -412,7 +359,6 @@ async function analyzeOnLoad() {
       console.log("⚠️ Backend resources unavailable, using bundled JSON");
     }
 
-    // Fallback to bundled JSON
     try {
       const response = await fetch(chrome.runtime.getURL('resources.json'));
       const data = await response.json();
@@ -428,7 +374,9 @@ async function analyzeOnLoad() {
   function renderResources(resources) {
     const resourcesContent = document.getElementById('resources-content');
     if (!resourcesContent || !resources || !resources.categories) {
-      resourcesContent.innerHTML = '<div style="text-align: center; color: #888; padding: 20px;">No resources available.</div>';
+      if (resourcesContent) {
+        resourcesContent.innerHTML = '<div style="text-align: center; color: #888; padding: 20px;">No resources available.</div>';
+      }
       return;
     }
 
@@ -436,12 +384,10 @@ async function analyzeOnLoad() {
     resources.categories.forEach(category => {
       html += `<div class="resources-category">`;
       html += `<div class="resources-category-title">${category.title}</div>`;
-      
       category.items.forEach(item => {
-        const kindLabel = item.kind === 'article' ? '📄 Article' : 
-                         item.kind === 'video' ? '🎥 Video' : 
+        const kindLabel = item.kind === 'article' ? '📄 Article' :
+                         item.kind === 'video' ? '🎥 Video' :
                          '📝 Exercise';
-        
         html += `<div class="resource-item">`;
         html += `<div class="resource-item-title">${item.title}</div>`;
         html += `<div class="resource-item-summary">${item.summary || ''}</div>`;
@@ -449,7 +395,6 @@ async function analyzeOnLoad() {
         html += `<button class="resource-open-btn" onclick="window.open('${item.url}', '_blank')">Open</button>`;
         html += `</div>`;
       });
-      
       html += `</div>`;
     });
 
@@ -462,7 +407,6 @@ async function analyzeOnLoad() {
     const chatbotActionButtons = document.getElementById('chatbot-action-buttons');
     const resourcesView = document.getElementById('chatbot-resources-view');
 
-    // Hide chat elements
     if (chatbotMessages) chatbotMessages.style.display = 'none';
     if (chatbotInputContainer) {
       chatbotInputContainer.classList.remove('active');
@@ -473,16 +417,11 @@ async function analyzeOnLoad() {
       chatbotActionButtons.style.display = 'none';
     }
 
-    // Show resources view
     if (resourcesView) {
       resourcesView.classList.add('active');
-      
-      // Load and render resources if not already loaded
       if (!resourcesData) {
         loadResources().then(data => {
-          if (data) {
-            renderResources(data);
-          }
+          if (data) renderResources(data);
         });
       } else {
         renderResources(resourcesData);
@@ -492,22 +431,12 @@ async function analyzeOnLoad() {
 
   function showChatView() {
     const chatbotMessages = document.getElementById('chatbot-messages');
-    const chatbotInputContainer = document.getElementById('chatbot-input-container');
-    const chatbotActionButtons = document.getElementById('chatbot-action-buttons');
     const resourcesView = document.getElementById('chatbot-resources-view');
 
-    // Show chat elements (restore their original display)
     if (chatbotMessages) chatbotMessages.style.display = 'block';
-    // Don't force show action buttons - let the chatbot flow control that
-    // if (chatbotActionButtons) chatbotActionButtons.style.display = 'flex';
-
-    // Hide resources view
-    if (resourcesView) {
-      resourcesView.classList.remove('active');
-    }
+    if (resourcesView) resourcesView.classList.remove('active');
   }
 
-  // Set up chatbot event listeners
   function setupChatbotListeners() {
     const chatbotSendBtn = document.getElementById('chatbot-send-btn');
     const chatbotInput = document.getElementById('chatbot-input');
@@ -519,9 +448,7 @@ async function analyzeOnLoad() {
     if (chatbotSendBtn) {
       chatbotSendBtn.addEventListener('click', () => {
         const message = chatbotInput.value.trim();
-        if (message) {
-          sendChatMessage(message);
-        }
+        if (message) sendChatMessage(message);
       });
     }
 
@@ -529,9 +456,7 @@ async function analyzeOnLoad() {
       chatbotInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
           const message = chatbotInput.value.trim();
-          if (message) {
-            sendChatMessage(message);
-          }
+          if (message) sendChatMessage(message);
         }
       });
     }
@@ -542,130 +467,64 @@ async function analyzeOnLoad() {
 
     if (chatbotSongBtn) {
       chatbotSongBtn.addEventListener('click', () => {
-        const songBtn = document.getElementById('chatbot-song-btn');
-        playRandomSong(songBtn);
+        playRandomSong(document.getElementById('chatbot-song-btn'));
       });
     }
 
     if (chatbotResourcesBtn) {
-      chatbotResourcesBtn.addEventListener('click', () => {
-        showResourcesView();
-      });
+      chatbotResourcesBtn.addEventListener('click', showResourcesView);
     }
 
     if (resourcesBackBtn) {
-      resourcesBackBtn.addEventListener('click', () => {
-        showChatView();
-      });
+      resourcesBackBtn.addEventListener('click', showChatView);
     }
   }
 
-  // ⭐ Call setupChatbotListeners here, after it's defined
   setupChatbotListeners();
 
-  // Helper function to show message feedback
   function showMessageFeedback(number, copied) {
     const resultDiv = document.getElementById('result');
     if (!resultDiv) return;
-    
-    // Remove any existing feedback
+
     const existingFeedback = resultDiv.querySelector('.call-feedback');
-    if (existingFeedback) {
-      existingFeedback.remove();
-    }
-    
+    if (existingFeedback) existingFeedback.remove();
+
     const feedback = document.createElement('div');
     feedback.className = 'call-feedback';
     feedback.style.cssText = 'margin-top: 12px; padding: 12px; background-color: #1a1a1a; border: 2px solid #dc3545; border-radius: 8px; font-size: 13px; color: #ffffff; text-align: center;';
-    
-    let message = '';
-    if (copied) {
-      message = '<div style="font-weight: bold; margin-bottom: 8px; color: #28a745;">✓ Number copied to clipboard!</div>';
-    } else {
-      message = '<div style="font-weight: bold; margin-bottom: 8px;">💬 Emergency Contact</div>';
-    }
-    
+
+    const message = copied
+      ? '<div style="font-weight: bold; margin-bottom: 8px; color: #28a745;">✓ Number copied to clipboard!</div>'
+      : '<div style="font-weight: bold; margin-bottom: 8px;">💬 Emergency Contact</div>';
+
     const instructions = `<div style="font-size: 11px; color: #888; margin-top: 8px; line-height: 1.4;">
       WhatsApp Web should have opened in a new tab with a pre-filled message.<br>
       ${copied ? 'Number is also copied to clipboard.' : ''}
     </div>`;
-    
-    // Set the HTML content first
+
     feedback.innerHTML = `
       ${message}
       <div style="font-size: 22px; font-weight: bold; margin: 12px 0; color: #1da1f2; letter-spacing: 3px; font-family: monospace;">${number}</div>
       ${instructions}
     `;
-    
-    // Add a button to open WhatsApp again if needed
+
     const whatsappLink = document.createElement('a');
     const messageText = encodeURIComponent("This user needs your help. Please reach out to them.");
     whatsappLink.href = `https://wa.me/${number.replace(/[^0-9]/g, '')}?text=${messageText}`;
     whatsappLink.target = '_blank';
     whatsappLink.style.cssText = 'display: inline-block; margin-top: 10px; padding: 10px 20px; background-color: #25D366; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer;';
     whatsappLink.textContent = '💬 Open WhatsApp Again';
-    
-    // Add the button to the feedback div
     feedback.appendChild(whatsappLink);
-    
+
     resultDiv.appendChild(feedback);
-    
-    // Remove feedback after 10 seconds
+
     setTimeout(() => {
-      if (feedback.parentNode) {
-        feedback.parentNode.removeChild(feedback);
-      }
+      if (feedback.parentNode) feedback.parentNode.removeChild(feedback);
     }, 10000);
   }
 
-  // Send message to background script which will relay to content script
-  chrome.runtime.sendMessage({ action: "getTweet" }, async (response) => {
-    console.log("📨 Popup received response:", response);
-
-    // #region agent log
-    fetch('http://127.0.0.1:7670/ingest/3b2d8e2b-e5c5-44ab-b4f2-d3bbfdc1db0a',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9fa83b'},
-      body:JSON.stringify({
-        sessionId:'9fa83b',
-        runId:'pre-fix',
-        hypothesisId:'H2',
-        location:'popup.js:622',
-        message:'popup getTweet response',
-        data:{
-          href:window.location.href,
-          hasError:!!(response && response.error),
-          error:response && response.error,
-          hasTweet:!!(response && response.tweet)
-        },
-        timestamp:Date.now()
-      })
-    }).catch(()=>{});
-    // #endregion agent log
-
-    // Check if there's an error (like connection issues)
-    if (chrome.runtime.lastError) {
-      console.error("Extension error:", chrome.runtime.lastError.message);
-      document.getElementById("result").innerText = "Error: Please reload the extension and try again.";
-      return;
-    }
-
-    // Check if background script returned an error
-    if (response && response.error) {
-      console.error("Background script error:", response.error);
-      document.getElementById("result").innerText = "Error: " + response.error;
-      return;
-    }
-
-    let tweetText = response?.tweet;
-    if (!tweetText) {
-      document.getElementById("result").innerText = "No tweet found on this page.";
-      return;
-    }
-
-    let clf = await classifyTweet(tweetText);
-    
-    // Helper function to create tweet preview HTML
+  // ✅ FIX: Shared distress UI function used by both normal flow and injected tweet flow
+  async function triggerDistressFlow(tweetText) {
     const createTweetPreview = (text) => {
       const escapedText = text.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
       const escapedTextForCopy = text.replace(/"/g, '&quot;');
@@ -678,124 +537,149 @@ async function analyzeOnLoad() {
       `;
     };
 
-    if (!clf || clf.label !== true) {
-      // Show debug info if available
+    const renderDistressUI = (city, helpline, centre, tweetText, approximate = false) => {
       const resultDiv = document.getElementById("result");
-      if (clf && clf.detail) {
-        const top = clf.detail.top_label ? ` (top: ${clf.detail.top_label} @ ${(clf.detail.top_score||0).toFixed(2)})` : "";
-        resultDiv.innerHTML = `
-          <div>✅ No sign of depression detected${top}.</div>
-          ${createTweetPreview(tweetText)}
-          <details style="margin-top:8px"><summary>Technical Details</summary><pre style="white-space:pre-wrap; font-size: 11px;">${
-            JSON.stringify(clf.detail, null, 2)
-          }</pre></details>
-        `;
-      } else {
-        resultDiv.innerHTML = `
-          <div>✅ No sign of depression detected.</div>
-          ${createTweetPreview(tweetText)}
-        `;
-      }
-      
-      // Add click handler for tweet copy button
-      const tweetCopyBtn = resultDiv.querySelector('.tweet-preview .copy-btn');
-      if (tweetCopyBtn) {
-        tweetCopyBtn.addEventListener('click', () => {
-          const textToCopy = tweetCopyBtn.getAttribute('data-copy-text');
-          copyToClipboard(textToCopy, tweetCopyBtn);
-        });
-      }
-      return;
-    }
+      const escapedTweet = tweetText.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      const escapedTweetForCopy = tweetText.replace(/"/g, '&quot;');
 
-    // If distress is found, get location and show resources
+      resultDiv.innerHTML = `
+        <h4>⚠️ Signs of distress detected</h4>
+        <div class="info-row">
+          <b>City:</b> ${city}${approximate ? ' (approximate)' : ''}
+        </div>
+        <div class="info-row">
+          <b>Suicide Helpline:</b> ${helpline}
+          <button class="copy-btn" data-copy-text="${helpline.replace(/"/g, '&quot;')}">Copy</button>
+        </div>
+        <div class="info-row">
+          <b>Mental Health Centre:</b> ${centre}
+          <button class="copy-btn" data-copy-text="${centre.replace(/"/g, '&quot;')}">Copy</button>
+        </div>
+        <div class="tweet-preview">
+          <div class="tweet-preview-header">📝 Analyzed Tweet</div>
+          <div class="tweet-preview-text">${escapedTweet}</div>
+          <button class="copy-btn" data-copy-text="${escapedTweetForCopy}" style="margin-top: 8px;">Copy Tweet</button>
+        </div>
+      `;
+
+      resultDiv.querySelectorAll('.copy-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          copyToClipboard(btn.getAttribute('data-copy-text'), btn);
+        });
+      });
+
+      setTimeout(() => startChatbotFlow(), 2500);
+    };
+
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
-        let rawCity = await getCityFromLocation(pos.coords.latitude, pos.coords.longitude);
+        const rawCity = await getCityFromLocation(pos.coords.latitude, pos.coords.longitude);
         const city = normalizeCityName(rawCity);
-        let helpline = helplines[city] || helplines["National"];
-        let centre = centres[city] || "Please contact national helpline for guidance.";
-
-        const resultDiv = document.getElementById("result");
-        const escapedTweet = tweetText.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-        const escapedTweetForCopy = tweetText.replace(/"/g, '&quot;');
-        resultDiv.innerHTML = `
-          <h4>⚠️ Signs of distress detected</h4>
-          <div class="info-row">
-            <b>City:</b> ${city}
-          </div>
-          <div class="info-row">
-            <b>Suicide Helpline:</b> ${helpline}
-            <button class="copy-btn" data-copy-text="${helpline.replace(/"/g, '&quot;')}">Copy</button>
-          </div>
-          <div class="info-row">
-            <b>Mental Health Centre:</b> ${centre}
-            <button class="copy-btn" data-copy-text="${centre.replace(/"/g, '&quot;')}">Copy</button>
-          </div>
-          <div class="tweet-preview">
-            <div class="tweet-preview-header">📝 Analyzed Tweet</div>
-            <div class="tweet-preview-text">${escapedTweet}</div>
-            <button class="copy-btn" data-copy-text="${escapedTweetForCopy}" style="margin-top: 8px;">Copy Tweet</button>
-          </div>
-        `;
-        
-        // Add click handlers for copy buttons
-        resultDiv.querySelectorAll('.copy-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const textToCopy = btn.getAttribute('data-copy-text');
-            copyToClipboard(textToCopy, btn);
-          });
-        });
-
-        // Start chatbot flow after showing distress info
-        setTimeout(() => {
-          startChatbotFlow();
-        }, 2500);
+        const helpline = helplines[city] || helplines["National"];
+        const centre = centres[city] || "Please contact national helpline for guidance.";
+        renderDistressUI(city, helpline, centre, tweetText, false);
       },
-      async (err) => { // This is the error callback for when geolocation fails or is denied
+      async (err) => {
         console.error("Geolocation error:", err);
-        // Fallback: IP-based city lookup
         const rawCity = await getCityFromIP();
         const city = normalizeCityName(rawCity);
         const helpline = helplines[city] || helplines["National"];
         const centre = centres[city] || "Please contact national helpline for guidance.";
-        const resultDiv = document.getElementById("result");
-        const escapedTweet = tweetText.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-        const escapedTweetForCopy = tweetText.replace(/"/g, '&quot;');
-        resultDiv.innerHTML = `
-          <h4>⚠️ Signs of distress detected</h4>
-          <div class="info-row">
-            <b>City:</b> ${city} (approximate)
-          </div>
-          <div class="info-row">
-            <b>Suicide Helpline:</b> ${helpline}
-            <button class="copy-btn" data-copy-text="${helpline.replace(/"/g, '&quot;')}">Copy</button>
-          </div>
-          <div class="info-row">
-            <b>Mental Health Centre:</b> ${centre}
-            <button class="copy-btn" data-copy-text="${centre.replace(/"/g, '&quot;')}">Copy</button>
-          </div>
-          <div class="tweet-preview">
-            <div class="tweet-preview-header">📝 Analyzed Tweet</div>
-            <div class="tweet-preview-text">${escapedTweet}</div>
-            <button class="copy-btn" data-copy-text="${escapedTweetForCopy}" style="margin-top: 8px;">Copy Tweet</button>
-          </div>
-        `;
-        
-        // Add click handlers for copy buttons
-        resultDiv.querySelectorAll('.copy-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const textToCopy = btn.getAttribute('data-copy-text');
-            copyToClipboard(textToCopy, btn);
-          });
-        });
-
-        // Start chatbot flow after showing distress info
-        setTimeout(() => {
-          startChatbotFlow();
-        }, 2500);
+        renderDistressUI(city, helpline, centre, tweetText, true);
       }
     );
+  }
+
+  // ✅ FIX: Check for injected tweet from sidebar "Get Help" button first,
+  // before falling back to the normal getTweet flow
+  chrome.storage.local.get(['injectedTweet', 'injectedTweetTimestamp'], async (stored) => {
+    const isRecent = stored.injectedTweetTimestamp &&
+                     (Date.now() - stored.injectedTweetTimestamp < 30000); // 30 second window
+
+    if (stored.injectedTweet && isRecent) {
+      console.log("✅ Found injected tweet from sidebar Get Help button");
+
+      // Clear storage immediately so it doesn't trigger again on next open
+      chrome.storage.local.remove(['injectedTweet', 'injectedTweetTimestamp']);
+
+      const tweetText = stored.injectedTweet;
+
+      // We already know this is a critical tweet — skip classification
+      // and go straight to distress UI
+      await triggerDistressFlow(tweetText);
+
+    } else {
+      // Normal flow — ask content script for the tweet on the active page
+      console.log("🔄 Popup sending message to background script...");
+
+      chrome.runtime.sendMessage({ action: "getTweet" }, async (response) => {
+        console.log("📨 Popup received response:", response);
+
+        if (chrome.runtime.lastError) {
+          console.error("Extension error:", chrome.runtime.lastError.message);
+          document.getElementById("result").innerText = "Error: Please reload the extension and try again.";
+          return;
+        }
+
+        if (response && response.error) {
+          console.error("Background script error:", response.error);
+          document.getElementById("result").innerText = "Error: " + response.error;
+          return;
+        }
+
+        const tweetText = response?.tweet;
+        if (!tweetText) {
+          document.getElementById("result").innerText = "No tweet found on this page.";
+          return;
+        }
+
+        const clf = await classifyTweet(tweetText);
+
+        const createTweetPreview = (text) => {
+          const escapedText = text.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+          const escapedTextForCopy = text.replace(/"/g, '&quot;');
+          return `
+            <div class="tweet-preview">
+              <div class="tweet-preview-header">📝 Analyzed Tweet</div>
+              <div class="tweet-preview-text">${escapedText}</div>
+              <button class="copy-btn" data-copy-text="${escapedTextForCopy}" style="margin-top: 8px;">Copy Tweet</button>
+            </div>
+          `;
+        };
+
+        if (!clf || clf.label !== true) {
+          const resultDiv = document.getElementById("result");
+          if (clf && clf.detail) {
+            const top = clf.detail.top_label
+              ? ` (top: ${clf.detail.top_label} @ ${(clf.detail.top_score || 0).toFixed(2)})`
+              : "";
+            resultDiv.innerHTML = `
+              <div>✅ No sign of depression detected${top}.</div>
+              ${createTweetPreview(tweetText)}
+              <details style="margin-top:8px"><summary>Technical Details</summary>
+                <pre style="white-space:pre-wrap; font-size: 11px;">${JSON.stringify(clf.detail, null, 2)}</pre>
+              </details>
+            `;
+          } else {
+            resultDiv.innerHTML = `
+              <div>✅ No sign of depression detected.</div>
+              ${createTweetPreview(tweetText)}
+            `;
+          }
+
+          const tweetCopyBtn = resultDiv.querySelector('.tweet-preview .copy-btn');
+          if (tweetCopyBtn) {
+            tweetCopyBtn.addEventListener('click', () => {
+              copyToClipboard(tweetCopyBtn.getAttribute('data-copy-text'), tweetCopyBtn);
+            });
+          }
+          return;
+        }
+
+        // Distress detected — use shared distress flow
+        await triggerDistressFlow(tweetText);
+      });
+    }
   });
 }
 
