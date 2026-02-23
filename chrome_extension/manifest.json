@@ -8,7 +8,8 @@
     "scripting",
     "activeTab",
     "tabs",
-    "geolocation"
+    "geolocation",
+    "notifications"
   ],
   "host_permissions": [
     "http://localhost:5000/*",

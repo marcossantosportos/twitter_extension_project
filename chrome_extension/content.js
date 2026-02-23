@@ -543,6 +543,16 @@ if (result && result.detail) {
     sidebarState.stats.warning++;
   } else if (score >= 0.75 && label === true) {
     sidebarState.stats.critical++;
+
+    // Notify background script about critical distress so it can show a notification
+    try {
+      chrome.runtime.sendMessage({
+        action: "showDistressNotification",
+        textPreview: tweetText.substring(0, 120)
+      });
+    } catch (e) {
+      console.error("Failed to send distress notification message:", e);
+    }
   } else {
     // Optional: handle cases that don't fit neatly
     sidebarState.stats.safe++;

@@ -20,9 +20,51 @@ chrome.runtime.onStartup.addListener(() => {
   console.log("🚀 Twitter Sentiment Extension service worker started.");
 });
 
-// Listen for messages from popup and relay to content script
+// Notification click handlers - open popup when user interacts
+if (chrome.notifications) {
+  chrome.notifications.onButtonClicked.addListener((notificationId, buttonIndex) => {
+    try {
+      chrome.action.openPopup();
+    } catch (e) {
+      console.error("Failed to open popup from notification button:", e);
+    }
+    chrome.notifications.clear(notificationId);
+  });
+
+  chrome.notifications.onClicked.addListener((notificationId) => {
+    try {
+      chrome.action.openPopup();
+    } catch (e) {
+      console.error("Failed to open popup from notification click:", e);
+    }
+    chrome.notifications.clear(notificationId);
+  });
+}
+
+// Listen for messages from popup/content and relay to appropriate handlers
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log("📩 Background received message:", message);
+
+  // Show browser notification for critical distress
+  if (message.action === "showDistressNotification") {
+    const options = {
+      type: "basic",
+      iconUrl: chrome.runtime.getURL("icon48.png"),
+      title: "Mental Health Support Available",
+      message: "We detected signs of distress. Click to get help.",
+      buttons: [{ title: "Get Help" }],
+      priority: 2
+    };
+
+    if (chrome.notifications) {
+      chrome.notifications.create(options, (notificationId) => {
+        console.log("✅ Distress notification shown:", notificationId);
+      });
+    }
+
+    sendResponse({ success: true });
+    return true;
+  }
 
   // NEW: Handle classification requests from content script
   if (message.action === "classifyTweet") {
@@ -131,8 +173,39 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const activeTab = tabs[0];
       console.log("📋 Active tab:", activeTab.url);
 
+      // #region agent log
+      fetch('http://127.0.0.1:7670/ingest/3b2d8e2b-e5c5-44ab-b4f2-d3bbfdc1db0a',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9fa83b'},
+        body:JSON.stringify({
+          sessionId:'9fa83b',
+          runId:'pre-fix',
+          hypothesisId:'H1',
+          location:'background.js:173',
+          message:'getTweet activeTab URL',
+          data:{url:activeTab.url},
+          timestamp:Date.now()
+        })
+      }).catch(()=>{});
+      // #endregion agent log
+
       // Check if we're on Twitter
       if (!activeTab.url.includes('twitter.com') && !activeTab.url.includes('x.com')) {
+        // #region agent log
+        fetch('http://127.0.0.1:7670/ingest/3b2d8e2b-e5c5-44ab-b4f2-d3bbfdc1db0a',{
+          method:'POST',
+          headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9fa83b'},
+          body:JSON.stringify({
+            sessionId:'9fa83b',
+            runId:'pre-fix',
+            hypothesisId:'H1',
+            location:'background.js:176',
+            message:'getTweet non-Twitter activeTab',
+            data:{url:activeTab.url},
+            timestamp:Date.now()
+          })
+        }).catch(()=>{});
+        // #endregion agent log
         sendResponse({ error: "Please navigate to Twitter/X to use this extension" });
         return;
       }

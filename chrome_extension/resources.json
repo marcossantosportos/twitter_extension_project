@@ -158,6 +158,30 @@
           "url": "https://www.psychologytools.com/resource/problem-solving/",
           "summary": "Structured approach to solving problems that contribute to emotional distress.",
           "tags": ["CBT", "problem-solving", "coping"]
+        },
+        {
+          "id": "cbt_6",
+          "title": "What Is Cognitive Behavioral Therapy?",
+          "kind": "article",
+          "url": "https://www.verywellmind.com/what-is-cognitive-behavior-therapy-2795106",
+          "summary": "Overview of CBT, how it works, and what to expect in treatment.",
+          "tags": ["CBT", "overview", "education"]
+        },
+        {
+          "id": "cbt_7",
+          "title": "CBT for PTSD (APA)",
+          "kind": "article",
+          "url": "https://www.apa.org/ptsd-guideline/patients-and-families/cognitive-behavioral",
+          "summary": "American Psychological Association guidance on CBT approaches for PTSD.",
+          "tags": ["CBT", "PTSD", "guideline"]
+        },
+        {
+          "id": "cbt_8",
+          "title": "Cognitive Behavioral Therapy - Mayo Clinic",
+          "kind": "article",
+          "url": "https://www.mayoclinic.org/tests-procedures/cognitive-behavioral-therapy/about/pac-20384610",
+          "summary": "Mayo Clinic explanation of CBT, why it is used, and what therapy involves.",
+          "tags": ["CBT", "Mayo-Clinic", "education"]
         }
       ]
     },

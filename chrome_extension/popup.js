@@ -622,6 +622,27 @@ async function analyzeOnLoad() {
   chrome.runtime.sendMessage({ action: "getTweet" }, async (response) => {
     console.log("📨 Popup received response:", response);
 
+    // #region agent log
+    fetch('http://127.0.0.1:7670/ingest/3b2d8e2b-e5c5-44ab-b4f2-d3bbfdc1db0a',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9fa83b'},
+      body:JSON.stringify({
+        sessionId:'9fa83b',
+        runId:'pre-fix',
+        hypothesisId:'H2',
+        location:'popup.js:622',
+        message:'popup getTweet response',
+        data:{
+          href:window.location.href,
+          hasError:!!(response && response.error),
+          error:response && response.error,
+          hasTweet:!!(response && response.tweet)
+        },
+        timestamp:Date.now()
+      })
+    }).catch(()=>{});
+    // #endregion agent log
+
     // Check if there's an error (like connection issues)
     if (chrome.runtime.lastError) {
       console.error("Extension error:", chrome.runtime.lastError.message);

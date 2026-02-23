@@ -104,7 +104,7 @@ def chat():
             session["state"] = "final"
             session["step"] = 3
             return jsonify({
-                "message": "Sometimes a small connection or a little burst of music can make moments like this feel lighter.",
+                "message": "Sometimes a small connection, a little burst of music, or going through some therapeutic articles or videos can make moments like this feel lighter.",
                 "next_delay": 2000,
                 "show_buttons": True
             })
