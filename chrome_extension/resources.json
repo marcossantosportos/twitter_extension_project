@@ -1,0 +1,219 @@
+{
+  "version": "1.0",
+  "categories": [
+    {
+      "id": "articles",
+      "title": "Curated Articles",
+      "items": [
+        {
+          "id": "article_1",
+          "title": "Understanding Depression and Anxiety",
+          "kind": "article",
+          "url": "https://www.helpguide.org/articles/depression/depression-symptoms-and-warning-signs.htm",
+          "summary": "Learn about the signs, symptoms, and warning signs of depression and anxiety disorders.",
+          "tags": ["depression", "anxiety", "mental-health"]
+        },
+        {
+          "id": "article_2",
+          "title": "Coping with Stress and Burnout",
+          "kind": "article",
+          "url": "https://www.helpguide.org/articles/stress/stress-management.htm",
+          "summary": "Practical strategies for managing stress and preventing burnout in daily life.",
+          "tags": ["stress", "burnout", "self-care"]
+        },
+        {
+          "id": "article_3",
+          "title": "Building Resilience",
+          "kind": "article",
+          "url": "https://www.apa.org/topics/resilience",
+          "summary": "Evidence-based approaches to building emotional resilience and mental strength.",
+          "tags": ["resilience", "wellness", "mental-health"]
+        },
+        {
+          "id": "article_4",
+          "title": "Self-Care Strategies",
+          "kind": "article",
+          "url": "https://www.nami.org/About-Mental-Illness/Treatments/Self-care",
+          "summary": "Comprehensive guide to self-care practices for mental wellness.",
+          "tags": ["self-care", "wellness", "mental-health"]
+        }
+      ]
+    },
+    {
+      "id": "videos",
+      "title": "Videos",
+      "items": [
+        {
+          "id": "video_1",
+          "title": "Understanding Your Mental Health",
+          "kind": "video",
+          "url": "https://www.youtube.com/watch?v=3QIfkeA6HBY",
+          "summary": "A comprehensive overview of mental health and common conditions.",
+          "tags": ["mental-health", "education"]
+        },
+        {
+          "id": "video_2",
+          "title": "Mindfulness Meditation for Beginners",
+          "kind": "video",
+          "url": "https://www.youtube.com/watch?v=ZToicYcHIOU",
+          "summary": "Learn basic mindfulness meditation techniques to reduce stress and anxiety.",
+          "tags": ["mindfulness", "meditation", "anxiety"]
+        },
+        {
+          "id": "video_3",
+          "title": "Breathing Exercises for Anxiety",
+          "kind": "video",
+          "url": "https://www.youtube.com/watch?v=tEmt1Znux58",
+          "summary": "Simple breathing techniques to help manage anxiety and panic attacks.",
+          "tags": ["anxiety", "breathing", "coping"]
+        },
+        {
+          "id": "video_4",
+          "title": "DBT Skills: Distress Tolerance",
+          "kind": "video",
+          "url": "https://www.youtube.com/watch?v=5q8x0QJk8w4",
+          "summary": "Introduction to Dialectical Behavior Therapy distress tolerance skills.",
+          "tags": ["DBT", "distress-tolerance", "coping"]
+        }
+      ]
+    },
+    {
+      "id": "self-help",
+      "title": "Self-Help Resources",
+      "items": [
+        {
+          "id": "selfhelp_1",
+          "title": "Mood Tracking Guide",
+          "kind": "exercise",
+          "url": "https://www.mind.org.uk/information-support/types-of-mental-health-problems/mood-swings/self-care/",
+          "summary": "Learn how to track your moods and identify patterns in your emotional well-being.",
+          "tags": ["mood-tracking", "self-awareness"]
+        },
+        {
+          "id": "selfhelp_2",
+          "title": "Gratitude Journaling",
+          "kind": "exercise",
+          "url": "https://www.health.harvard.edu/healthbeat/giving-thanks-can-make-you-happier",
+          "summary": "Discover the benefits of gratitude journaling and how to get started.",
+          "tags": ["gratitude", "journaling", "wellness"]
+        },
+        {
+          "id": "selfhelp_3",
+          "title": "Sleep Hygiene Guide",
+          "kind": "exercise",
+          "url": "https://www.sleepfoundation.org/sleep-hygiene",
+          "summary": "Improve your sleep quality with evidence-based sleep hygiene practices.",
+          "tags": ["sleep", "wellness", "self-care"]
+        },
+        {
+          "id": "selfhelp_4",
+          "title": "Social Connection Strategies",
+          "kind": "exercise",
+          "url": "https://www.helpguide.org/articles/relationships-communication/finding-and-making-friends.htm",
+          "summary": "Ways to build and maintain meaningful social connections.",
+          "tags": ["social-connection", "loneliness", "wellness"]
+        }
+      ]
+    },
+    {
+      "id": "cbt",
+      "title": "CBT Techniques",
+      "items": [
+        {
+          "id": "cbt_1",
+          "title": "Cognitive Restructuring",
+          "kind": "exercise",
+          "url": "https://www.verywellmind.com/what-is-cognitive-restructuring-3024252",
+          "summary": "Learn to identify and challenge negative thought patterns using CBT techniques.",
+          "tags": ["CBT", "cognitive-restructuring", "thought-patterns"]
+        },
+        {
+          "id": "cbt_2",
+          "title": "Thought Record Worksheet",
+          "kind": "exercise",
+          "url": "https://www.psychologytools.com/resource/thought-record/",
+          "summary": "A practical worksheet to track and analyze your thoughts using CBT principles.",
+          "tags": ["CBT", "thought-records", "worksheets"]
+        },
+        {
+          "id": "cbt_3",
+          "title": "Behavioral Activation",
+          "kind": "exercise",
+          "url": "https://www.psychologytools.com/resource/behavioral-activation/",
+          "summary": "Use behavioral activation to overcome depression by scheduling meaningful activities.",
+          "tags": ["CBT", "behavioral-activation", "depression"]
+        },
+        {
+          "id": "cbt_4",
+          "title": "Exposure Therapy Basics",
+          "kind": "exercise",
+          "url": "https://www.verywellmind.com/what-is-exposure-therapy-2797334",
+          "summary": "Introduction to exposure therapy for managing anxiety and phobias.",
+          "tags": ["CBT", "exposure-therapy", "anxiety"]
+        },
+        {
+          "id": "cbt_5",
+          "title": "Problem-Solving Therapy",
+          "kind": "exercise",
+          "url": "https://www.psychologytools.com/resource/problem-solving/",
+          "summary": "Structured approach to solving problems that contribute to emotional distress.",
+          "tags": ["CBT", "problem-solving", "coping"]
+        }
+      ]
+    },
+    {
+      "id": "dbt",
+      "title": "DBT Skills",
+      "items": [
+        {
+          "id": "dbt_1",
+          "title": "Mindfulness Skills",
+          "kind": "exercise",
+          "url": "https://www.dbtselfhelp.com/html/mindfulness_skills.html",
+          "summary": "Core DBT mindfulness skills to help you stay present and reduce emotional reactivity.",
+          "tags": ["DBT", "mindfulness", "emotional-regulation"]
+        },
+        {
+          "id": "dbt_2",
+          "title": "Distress Tolerance: TIPP Technique",
+          "kind": "exercise",
+          "url": "https://www.dbtselfhelp.com/html/tipp.html",
+          "summary": "Temperature, Intense exercise, Paced breathing, and Paired muscle relaxation for crisis moments.",
+          "tags": ["DBT", "distress-tolerance", "crisis"]
+        },
+        {
+          "id": "dbt_3",
+          "title": "Emotion Regulation Skills",
+          "kind": "exercise",
+          "url": "https://www.dbtselfhelp.com/html/emotion_regulation.html",
+          "summary": "Learn to understand and manage your emotions more effectively.",
+          "tags": ["DBT", "emotion-regulation", "coping"]
+        },
+        {
+          "id": "dbt_4",
+          "title": "Interpersonal Effectiveness",
+          "kind": "exercise",
+          "url": "https://www.dbtselfhelp.com/html/interpersonal_effectiveness.html",
+          "summary": "Skills for maintaining relationships while respecting your own needs.",
+          "tags": ["DBT", "interpersonal", "relationships"]
+        },
+        {
+          "id": "dbt_5",
+          "title": "Wise Mind",
+          "kind": "exercise",
+          "url": "https://www.dbtselfhelp.com/html/wise_mind.html",
+          "summary": "Balance emotional mind and reasonable mind to access your wise mind.",
+          "tags": ["DBT", "wise-mind", "mindfulness"]
+        },
+        {
+          "id": "dbt_6",
+          "title": "DEAR MAN Technique",
+          "kind": "exercise",
+          "url": "https://www.dbtselfhelp.com/html/dear_man.html",
+          "summary": "A structured way to ask for what you need while maintaining relationships.",
+          "tags": ["DBT", "interpersonal", "communication"]
+        }
+      ]
+    }
+  ]
+}

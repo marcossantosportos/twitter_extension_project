@@ -262,6 +262,117 @@
     #chatbot-action-buttons button {
       flex: 1;
     }
+    #chatbot-resources-view {
+      display: none;
+      max-height: 300px;
+      overflow-y: auto;
+      margin-top: 12px;
+    }
+    #chatbot-resources-view.active {
+      display: block;
+    }
+    .resources-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #2a2a2a;
+    }
+    .resources-back-btn {
+      background-color: #6c757d;
+      color: #ffffff;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: bold;
+    }
+    .resources-back-btn:hover {
+      background-color: #5a6268;
+    }
+    .resources-category {
+      margin-bottom: 16px;
+    }
+    .resources-category-title {
+      font-size: 14px;
+      font-weight: bold;
+      color: #1da1f2;
+      margin-bottom: 8px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid #2a2a2a;
+    }
+    .resource-item {
+      background-color: #0a0a0a;
+      border: 1px solid #2a2a2a;
+      border-radius: 6px;
+      padding: 10px;
+      margin-bottom: 8px;
+    }
+    .resource-item-title {
+      font-size: 13px;
+      font-weight: bold;
+      color: #ffffff;
+      margin-bottom: 4px;
+    }
+    .resource-item-summary {
+      font-size: 11px;
+      color: #888;
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+    .resource-item-kind {
+      display: inline-block;
+      font-size: 10px;
+      color: #1da1f2;
+      background-color: #1a1a1a;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-right: 6px;
+    }
+    .resource-open-btn {
+      background-color: #1da1f2;
+      color: #ffffff;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: bold;
+      margin-top: 6px;
+    }
+    .resource-open-btn:hover {
+      background-color: #1a8cd8;
+    }
+    .resources-safety-note {
+      font-size: 10px;
+      color: #dc3545;
+      margin-top: 12px;
+      padding: 8px;
+      background-color: #1a1a1a;
+      border-left: 3px solid #dc3545;
+      border-radius: 4px;
+    }
+    .resources-btn {
+      background-color: #9b59b6;
+      color: #ffffff;
+      border: none;
+      padding: 8px 10px;
+      margin-top: 10px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: bold;
+      width: 100%;
+      transition: background-color 0.2s;
+    }
+    .resources-btn:hover {
+      background-color: #8e44ad;
+    }
+    .resources-btn:active {
+      background-color: #7d3c98;
+    }
   </style>
 </head>
 <body>
@@ -276,6 +387,19 @@
     <div id="chatbot-action-buttons">
       <button class="call-btn" id="chatbot-message-btn">💬 Message someone close</button>
       <button class="song-btn" id="chatbot-song-btn">Play an upbeat song</button>
+      <button class="resources-btn" id="chatbot-resources-btn">📚 Resources (CBT/DBT)</button>
+    </div>
+    <div id="chatbot-resources-view">
+      <div class="resources-header">
+        <span style="font-weight: bold; font-size: 14px;">Resource Library</span>
+        <button class="resources-back-btn" id="resources-back-btn">← Back to Chat</button>
+      </div>
+      <div id="resources-content">
+        <div style="text-align: center; color: #888; padding: 20px;">Loading resources...</div>
+      </div>
+      <div class="resources-safety-note">
+        ⚠️ If you feel unsafe or are in immediate danger, please contact your local emergency services or helpline immediately.
+      </div>
     </div>
   </div>
   <div id="music-player">

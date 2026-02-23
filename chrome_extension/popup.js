@@ -391,12 +391,130 @@ async function analyzeOnLoad() {
     })();
   }
 
+  // Resources functionality
+  let resourcesData = null;
+
+  async function loadResources() {
+    // Try backend first
+    try {
+      const response = await fetch("http://localhost:5000/resources", {
+        method: "GET",
+        headers: { "Content-Type": "application/json" }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        resourcesData = data;
+        console.log("✅ Resources loaded from backend");
+        return data;
+      }
+    } catch (err) {
+      console.log("⚠️ Backend resources unavailable, using bundled JSON");
+    }
+
+    // Fallback to bundled JSON
+    try {
+      const response = await fetch(chrome.runtime.getURL('resources.json'));
+      const data = await response.json();
+      resourcesData = data;
+      console.log("✅ Resources loaded from bundled JSON");
+      return data;
+    } catch (err) {
+      console.error("❌ Failed to load resources:", err);
+      return null;
+    }
+  }
+
+  function renderResources(resources) {
+    const resourcesContent = document.getElementById('resources-content');
+    if (!resourcesContent || !resources || !resources.categories) {
+      resourcesContent.innerHTML = '<div style="text-align: center; color: #888; padding: 20px;">No resources available.</div>';
+      return;
+    }
+
+    let html = '';
+    resources.categories.forEach(category => {
+      html += `<div class="resources-category">`;
+      html += `<div class="resources-category-title">${category.title}</div>`;
+      
+      category.items.forEach(item => {
+        const kindLabel = item.kind === 'article' ? '📄 Article' : 
+                         item.kind === 'video' ? '🎥 Video' : 
+                         '📝 Exercise';
+        
+        html += `<div class="resource-item">`;
+        html += `<div class="resource-item-title">${item.title}</div>`;
+        html += `<div class="resource-item-summary">${item.summary || ''}</div>`;
+        html += `<span class="resource-item-kind">${kindLabel}</span>`;
+        html += `<button class="resource-open-btn" onclick="window.open('${item.url}', '_blank')">Open</button>`;
+        html += `</div>`;
+      });
+      
+      html += `</div>`;
+    });
+
+    resourcesContent.innerHTML = html;
+  }
+
+  function showResourcesView() {
+    const chatbotMessages = document.getElementById('chatbot-messages');
+    const chatbotInputContainer = document.getElementById('chatbot-input-container');
+    const chatbotActionButtons = document.getElementById('chatbot-action-buttons');
+    const resourcesView = document.getElementById('chatbot-resources-view');
+
+    // Hide chat elements
+    if (chatbotMessages) chatbotMessages.style.display = 'none';
+    if (chatbotInputContainer) {
+      chatbotInputContainer.classList.remove('active');
+      chatbotInputContainer.style.display = 'none';
+    }
+    if (chatbotActionButtons) {
+      chatbotActionButtons.classList.remove('active');
+      chatbotActionButtons.style.display = 'none';
+    }
+
+    // Show resources view
+    if (resourcesView) {
+      resourcesView.classList.add('active');
+      
+      // Load and render resources if not already loaded
+      if (!resourcesData) {
+        loadResources().then(data => {
+          if (data) {
+            renderResources(data);
+          }
+        });
+      } else {
+        renderResources(resourcesData);
+      }
+    }
+  }
+
+  function showChatView() {
+    const chatbotMessages = document.getElementById('chatbot-messages');
+    const chatbotInputContainer = document.getElementById('chatbot-input-container');
+    const chatbotActionButtons = document.getElementById('chatbot-action-buttons');
+    const resourcesView = document.getElementById('chatbot-resources-view');
+
+    // Show chat elements (restore their original display)
+    if (chatbotMessages) chatbotMessages.style.display = 'block';
+    // Don't force show action buttons - let the chatbot flow control that
+    // if (chatbotActionButtons) chatbotActionButtons.style.display = 'flex';
+
+    // Hide resources view
+    if (resourcesView) {
+      resourcesView.classList.remove('active');
+    }
+  }
+
   // Set up chatbot event listeners
   function setupChatbotListeners() {
     const chatbotSendBtn = document.getElementById('chatbot-send-btn');
     const chatbotInput = document.getElementById('chatbot-input');
     const chatbotMessageBtn = document.getElementById('chatbot-message-btn');
     const chatbotSongBtn = document.getElementById('chatbot-song-btn');
+    const chatbotResourcesBtn = document.getElementById('chatbot-resources-btn');
+    const resourcesBackBtn = document.getElementById('resources-back-btn');
 
     if (chatbotSendBtn) {
       chatbotSendBtn.addEventListener('click', () => {
@@ -426,6 +544,18 @@ async function analyzeOnLoad() {
       chatbotSongBtn.addEventListener('click', () => {
         const songBtn = document.getElementById('chatbot-song-btn');
         playRandomSong(songBtn);
+      });
+    }
+
+    if (chatbotResourcesBtn) {
+      chatbotResourcesBtn.addEventListener('click', () => {
+        showResourcesView();
+      });
+    }
+
+    if (resourcesBackBtn) {
+      resourcesBackBtn.addEventListener('click', () => {
+        showChatView();
       });
     }
   }

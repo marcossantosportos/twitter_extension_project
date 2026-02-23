@@ -30,5 +30,11 @@
       "matches": ["*://twitter.com/*", "*://x.com/*"],
       "js": ["content.js"]
     }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["resources.json"],
+      "matches": ["<all_urls>"]
+    }
   ]
 }

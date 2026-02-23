@@ -123,7 +123,34 @@ def chat():
         return jsonify({"error": "Failed to process chat"}), 500
 
 # ============================
-# Step 4: Create the API Endpoint for Classification
+# Step 4: Resources Endpoint
+# ============================
+@app.route("/resources", methods=["GET"])
+def get_resources():
+    """Return curated mental health resources"""
+    try:
+        import json
+        import os
+        
+        # Try to load from a resources.json file in the Backend directory
+        resources_path = os.path.join(os.path.dirname(__file__), "..", "chrome_extension", "resources.json")
+        
+        if os.path.exists(resources_path):
+            with open(resources_path, 'r', encoding='utf-8') as f:
+                resources_data = json.load(f)
+            return jsonify(resources_data)
+        else:
+            # Fallback: return a minimal structure if file not found
+            return jsonify({
+                "version": "1.0",
+                "categories": []
+            })
+    except Exception as e:
+        print(f"Error loading resources: {e}")
+        return jsonify({"error": "Failed to load resources"}), 500
+
+# ============================
+# Step 5: Create the API Endpoint for Classification
 # ============================
 @app.route("/classify", methods=["POST"])
 def classify_text():
@@ -226,7 +253,7 @@ def classify_text():
         return jsonify({"error": "Failed to process the request."}), 500
 
 # ============================
-# Step 5: Run the Flask Server
+# Step 6: Run the Flask Server
 # ============================
 if __name__ == "__main__":
     # Run the app on localhost at port 5000
