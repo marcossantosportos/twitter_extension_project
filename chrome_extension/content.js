@@ -335,12 +335,26 @@ function createSidebar() {
     content.addEventListener('click', (e) => {
       // Handle action button clicks
       if (e.target.classList.contains('sentiment-action-btn')) {
-        // Specifically handle \"Get Help\" button for critical tweets
+        // Specifically handle "Get Help" button for critical tweets
         if (e.target.classList.contains('sentiment-get-help-btn')) {
-          try {
-            chrome.runtime.sendMessage({ action: 'openPopup' });
-          } catch (err) {
-            console.error('Failed to send openPopup message:', err);
+          const card = e.target.closest('.sentiment-tweet-card');
+          const tweetTextAttr = card && card.getAttribute('data-tweet-text');
+
+          if (!tweetTextAttr) {
+            console.warn('Get Help clicked but no tweet text found on card');
+          } else {
+            // Store the exact tweet text for the popup to use
+            chrome.storage.local.set(
+              { injectedTweet: tweetTextAttr, injectedTweetTimestamp: Date.now() },
+              () => {
+                // After storing, ask background to open the popup
+                try {
+                  chrome.runtime.sendMessage({ action: 'openPopup' });
+                } catch (err) {
+                  console.error('Failed to send openPopup message:', err);
+                }
+              }
+            );
           }
         }
         return; // Don't toggle card when clicking action buttons
