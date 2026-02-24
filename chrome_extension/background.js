@@ -65,29 +65,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  // ✅ FIX: Handle openPopup request from content script "Get Help" button
+  // Handle openPopup request from content script \"Get Help\" button
   if (message.action === "openPopup") {
-    chrome.action.openPopup()
-      .then(() => {
-        console.log("✅ Popup opened successfully");
-        sendResponse({ success: true });
-      })
-      .catch(err => {
-        console.error("Failed to open popup:", err);
-        // Fallback: try to open popup.html in a new tab if openPopup() fails
-        // (openPopup() can fail if no browser window is focused)
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-          if (tabs && tabs[0]) {
-            chrome.tabs.create({
-              url: chrome.runtime.getURL("popup.html"),
-              active: true
-            });
-          }
-        });
-        sendResponse({ success: false, error: err.message });
-      });
-
-    return true; // Keep message channel open for async response
+    try {
+      chrome.action.openPopup();
+      console.log("✅ Popup opened successfully via openPopup message");
+      sendResponse({ success: true });
+    } catch (err) {
+      console.error("Failed to open popup:", err);
+      sendResponse({ success: false, error: err?.message || String(err) });
+    }
+    return true;
   }
 
   // Handle classification requests from content script

@@ -33,21 +33,22 @@ const cityAliases = {
 };
 
 const calmingSongs = [
-  { title: "Happy — Pharrell Williams", videoId: "ZbZSe6N_BXs" },
-  { title: "Best Day of My Life — American Authors", videoId: "Y66j_BUCBMY" },
-  { title: "Can't Stop the Feeling! — Justin Timberlake", videoId: "ru0K8uYEZWw" },
-  { title: "Walking on Sunshine — Katrina & The Waves", videoId: "iPUmE-tne5U" },
-  { title: "Uptown Funk — Mark Ronson ft. Bruno Mars", videoId: "OPf0YbXqDm0" },
-  { title: "Good Life — OneRepublic", videoId: "jZhQOvvV45w" },
-  { title: "Wake Me Up — Avicii", videoId: "IcrbM1l_BoI" },
-  { title: "On Top of the World — Imagine Dragons", videoId: "w5tWYmIOWGk" },
-  { title: "What Makes You Beautiful — One Direction", videoId: "QJO3ROT-A4E" },
-  { title: "Firework — Katy Perry", videoId: "QGJuMBdaqIw" },
-  { title: "I Gotta Feeling — The Black Eyed Peas", videoId: "uSD4vsh1zDA" },
-  { title: "Sugar — Maroon 5", videoId: "09R8_2nJtjg" },
-  { title: "Dancing Queen — ABBA", videoId: "xFrGuyw1V8s" },
-  { title: "High Hopes — Panic! At The Disco", videoId: "IPXIgEAGe4U" },
-  { title: "Levitating — Dua Lipa", videoId: "TUVcZfQe-Kw" }
+  // These are example Spotify track/playlist URLs. Replace with your own if you prefer.
+  { title: "Happy — Pharrell Williams", url: "https://open.spotify.com/track/6NPVjNh8Jhru9xOmyQigds" },
+  { title: "Best Day of My Life — American Authors", url: "https://open.spotify.com/track/6vu4wZk7jvMaSRvFibS3h5" },
+  { title: "Can't Stop the Feeling! — Justin Timberlake", url: "https://open.spotify.com/track/6JV2JOEocMgcZxYSZelKcc" },
+  { title: "Walking on Sunshine — Katrina & The Waves", url: "https://open.spotify.com/track/1Cv1YLb4q0RzL6pybtaMLo" },
+  { title: "Uptown Funk — Mark Ronson ft. Bruno Mars", url: "https://open.spotify.com/track/32OlwWuMpZ6b0aN2RZOeMS" },
+  { title: "Good Life — OneRepublic", url: "https://open.spotify.com/track/6OtCIsQZ64Vs1EbzztvAv4" },
+  { title: "Wake Me Up — Avicii", url: "https://open.spotify.com/track/0nrRP2bk19rLc0orkWPQk2" },
+  { title: "On Top of the World — Imagine Dragons", url: "https://open.spotify.com/track/2RSHsoi04658QL5xgQVov3" },
+  { title: "What Makes You Beautiful — One Direction", url: "https://open.spotify.com/track/4cluDES4hQEUhmXj6TXkSo" },
+  { title: "Firework — Katy Perry", url: "https://open.spotify.com/track/1m1j5BZZpXs2c98Zqn5Qt5" },
+  { title: "I Gotta Feeling — The Black Eyed Peas", url: "https://open.spotify.com/track/4kLLWz7srcuLkaYFeuK1L3" },
+  { title: "Sugar — Maroon 5", url: "https://open.spotify.com/track/494OU6M7NOf4ICYb4zWCf5" },
+  { title: "Dancing Queen — ABBA", url: "https://open.spotify.com/track/0GjEhVFGZW8afUYGChu3Rr" },
+  { title: "High Hopes — Panic! At The Disco", url: "https://open.spotify.com/track/1rqqCSm0Qe4I9rUvWncaom" },
+  { title: "Levitating — Dua Lipa", url: "https://open.spotify.com/track/463CkQjx2Zk1yXoBuierM9" }
 ];
 
 function normalizeCityName(name) {
@@ -299,12 +300,9 @@ async function analyzeOnLoad() {
     if (!calmingSongs.length) return;
     const track = calmingSongs[Math.floor(Math.random() * calmingSongs.length)];
     const originalText = buttonEl.textContent;
-    buttonEl.textContent = `Opening: ${track.title}`;
-    if (track.videoId) {
-      globalThis.open(`https://www.youtube.com/watch?v=${track.videoId}&autoplay=1`, "_blank");
-    } else {
-      const query = encodeURIComponent(track.title);
-      globalThis.open(`https://www.youtube.com/results?search_query=${query}`, "_blank");
+    buttonEl.textContent = `Opening on Spotify: ${track.title}`;
+    if (track.url) {
+      globalThis.open(track.url, "_blank");
     }
     setTimeout(() => {
       buttonEl.textContent = originalText;
@@ -392,7 +390,7 @@ async function analyzeOnLoad() {
         html += `<div class="resource-item-title">${item.title}</div>`;
         html += `<div class="resource-item-summary">${item.summary || ''}</div>`;
         html += `<span class="resource-item-kind">${kindLabel}</span>`;
-        html += `<button class="resource-open-btn" onclick="window.open('${item.url}', '_blank')">Open</button>`;
+        html += `<button class="resource-open-btn" data-url="${item.url}">Open</button>`;
         html += `</div>`;
       });
       html += `</div>`;

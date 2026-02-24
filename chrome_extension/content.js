@@ -335,7 +335,15 @@ function createSidebar() {
     content.addEventListener('click', (e) => {
       // Handle action button clicks
       if (e.target.classList.contains('sentiment-action-btn')) {
-        return; // Action buttons handle their own clicks
+        // Specifically handle \"Get Help\" button for critical tweets
+        if (e.target.classList.contains('sentiment-get-help-btn')) {
+          try {
+            chrome.runtime.sendMessage({ action: 'openPopup' });
+          } catch (err) {
+            console.error('Failed to send openPopup message:', err);
+          }
+        }
+        return; // Don't toggle card when clicking action buttons
       }
       
       // Find the clicked tweet card
@@ -452,7 +460,7 @@ if (result && result.loading) {
       ` : ''}
       ${statusClass === 'critical' ? `
         <div class="sentiment-tweet-actions">
-          <button class="sentiment-action-btn" onclick="window.open('chrome-extension://${chrome.runtime.id}/popup.html', '_blank')">Get Help</button>
+          <button class="sentiment-action-btn sentiment-get-help-btn">Get Help</button>
         </div>
       ` : ''}
     </div>
