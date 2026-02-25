@@ -229,22 +229,20 @@ function getTweetText(tweetElement) {
 // Classify tweet via background script (to bypass CORS)
 async function classifyTweet(tweetText) {
   try {
-    // Validate tweet text
     if (!tweetText || !tweetText.trim()) {
       return { label: false, error: "empty_tweet", detail: "Tweet text is empty or invalid." };
     }
 
-    // Send message to background script to do the classification
     return new Promise((resolve, reject) => {
       chrome.runtime.sendMessage(
         { action: "classifyTweet", text: tweetText },
         (response) => {
           if (chrome.runtime.lastError) {
             console.error("Runtime error:", chrome.runtime.lastError);
-            resolve({ 
-              label: false, 
-              error: "connection_failed", 
-              detail: chrome.runtime.lastError.message 
+            resolve({
+              label: false,
+              error: "connection_failed",
+              detail: chrome.runtime.lastError.message
             });
             return;
           }
@@ -258,13 +256,13 @@ async function classifyTweet(tweetText) {
         }
       );
     });
-    
+
   } catch (err) {
     console.error("Classification failed:", err);
-    return { 
-      label: false, 
-      error: "classification_failed", 
-      detail: err.message || "Unknown error occurred" 
+    return {
+      label: false,
+      error: "classification_failed",
+      detail: err.message || "Unknown error occurred"
     };
   }
 }
@@ -279,7 +277,7 @@ function createSidebar() {
 
   const sidebar = document.createElement('div');
   sidebar.id = 'sentiment-sidebar';
-  
+
   // Load collapsed state from storage
   chrome.storage.local.get(['sidebarCollapsed'], (result) => {
     if (result.sidebarCollapsed) {
@@ -324,8 +322,6 @@ function createSidebar() {
     sidebar.classList.toggle('collapsed');
     sidebarState.isCollapsed = sidebar.classList.contains('collapsed');
     toggleBtn.textContent = sidebarState.isCollapsed ? '▶' : '◀';
-    
-    // Save state
     chrome.storage.local.set({ sidebarCollapsed: sidebarState.isCollapsed });
   });
 
@@ -333,47 +329,46 @@ function createSidebar() {
   const content = sidebar.querySelector('#sentiment-sidebar-content');
   if (content) {
     content.addEventListener('click', (e) => {
-      // Handle action button clicks
-      if (e.target.classList.contains('sentiment-action-btn')) {
-        // Specifically handle "Get Help" button for critical tweets
-        if (e.target.classList.contains('sentiment-get-help-btn')) {
-          const card = e.target.closest('.sentiment-tweet-card');
-          const tweetTextAttr = card && card.getAttribute('data-tweet-text');
 
-          if (!tweetTextAttr) {
-            console.warn('Get Help clicked but no tweet text found on card');
-          } else {
-            // Store the exact tweet text for the popup to use
-            chrome.storage.local.set(
-              { injectedTweet: tweetTextAttr, injectedTweetTimestamp: Date.now() },
-              () => {
-                // After storing, ask background to open the popup
-                try {
-                  chrome.runtime.sendMessage({ action: 'openPopup' });
-                } catch (err) {
-                  console.error('Failed to send openPopup message:', err);
+      // FIX: Handle "Get Help" button click (CSP-safe — no inline onclick)
+      // Store the tweet text in chrome.storage then ask background to open the popup
+      if (e.target.classList.contains('sentiment-get-help-btn')) {
+        const card = e.target.closest('.sentiment-tweet-card');
+        const tweetTextAttr = card && card.getAttribute('data-tweet-text');
+
+        if (!tweetTextAttr) {
+          console.warn('Get Help clicked but no tweet text found on card');
+        } else {
+          chrome.storage.local.set(
+            { injectedTweet: tweetTextAttr, injectedTweetTimestamp: Date.now() },
+            () => {
+              chrome.runtime.sendMessage({ action: 'openPopup' }, (response) => {
+                if (chrome.runtime.lastError) {
+                  console.error('Failed to send openPopup message:', chrome.runtime.lastError.message);
                 }
-              }
-            );
-          }
+              });
+            }
+          );
         }
-        return; // Don't toggle card when clicking action buttons
+        return; // Don't fall through to card toggle
       }
-      
-      // Find the clicked tweet card
+
+      // Don't toggle card when clicking any other action button
+      if (e.target.classList.contains('sentiment-action-btn')) {
+        return;
+      }
+
+      // Find the clicked tweet card and toggle expansion
       const card = e.target.closest('.sentiment-tweet-card');
       if (!card) return;
-      
+
       const tweetTextAttr = card.getAttribute('data-tweet-text');
       if (!tweetTextAttr) return;
-      
-      // Get result from state
+
       const cardResult = sidebarState.analyzedTweets.get(tweetTextAttr);
       if (!cardResult) return;
-      
-      // Toggle expansion
+
       const isExpanded = card.querySelector('.sentiment-tweet-expanded');
-      const cardId = card.id;
       card.outerHTML = createTweetCard(tweetTextAttr, cardResult, !isExpanded);
     });
   }
@@ -397,70 +392,64 @@ function updateStats() {
 // Create tweet card
 function createTweetCard(tweetText, result, isExpanded = false) {
   const cardId = `tweet-card-${tweetText.substring(0, 20).replace(/\s/g, '-')}`;
-  
+
   let statusClass = 'safe';
   let statusIcon = 'safe';
   let statusText = 'Safe';
   let confidence = 'N/A';
+  let errorMessage = null;
 
-let errorMessage = null;
+  if (result && result.loading) {
+    statusClass = 'loading';
+    statusIcon = 'loading';
+    statusText = 'Analyzing...';
+    confidence = '';
+  } else if (result && result.error) {
+    statusClass = 'loading';
+    statusIcon = 'loading';
+    statusText = 'Error';
+    errorMessage = result.detail || result.error || 'Unknown error';
+  } else if (result && result.detail) {
+    const score = result.detail.top_score ?? null;
+    const label = result.label ?? false;
 
-if (result && result.loading) {
-  statusClass = 'loading';
-  statusIcon = 'loading';
-  statusText = 'Analyzing...';
-  confidence = '';
-} else if (result && result.error) {
-  statusClass = 'loading';
-  statusIcon = 'loading';
-  statusText = 'Error';
-  errorMessage = result.detail || result.error || 'Unknown error';
-} else if (result && result.detail) {
-  const score = result.detail.top_score ?? null;
-  const label = result.label ?? false;
-
-  if (score !== null) {
-    if (score <= 0.5) {
-      // SAFE
-      statusClass = 'safe';
-      statusIcon = 'safe';
-      statusText = 'Safe';
-      confidence = (score * 100).toFixed(1) + '%';
-    } else if (score > 0.5 && score < 0.75 && label === false) {
-      // WARNING
-      statusClass = 'warning';
-      statusIcon = 'warning';
-      statusText = 'Warning';
-      confidence = (score * 100).toFixed(1) + '%';
-    } else if (score >= 0.75 && label === true) {
-      // CRITICAL
-      statusClass = 'critical';
-      statusIcon = 'critical';
-      statusText = 'Critical';
-      confidence = (score * 100).toFixed(1) + '%';
+    if (score !== null) {
+      if (score <= 0.5) {
+        statusClass = 'safe';
+        statusIcon = 'safe';
+        statusText = 'Safe';
+        confidence = (score * 100).toFixed(1) + '%';
+      } else if (score > 0.5 && score < 0.75 && label === false) {
+        statusClass = 'warning';
+        statusIcon = 'warning';
+        statusText = 'Warning';
+        confidence = (score * 100).toFixed(1) + '%';
+      } else if (score >= 0.75 && label === true) {
+        statusClass = 'critical';
+        statusIcon = 'critical';
+        statusText = 'Critical';
+        confidence = (score * 100).toFixed(1) + '%';
+      } else {
+        statusClass = 'safe';
+        statusIcon = 'safe';
+        statusText = 'Safe';
+        confidence = (score * 100).toFixed(1) + '%';
+      }
     } else {
-      // Fallback (borderline cases not matching)
       statusClass = 'safe';
       statusIcon = 'safe';
       statusText = 'Safe';
-      confidence = (score * 100).toFixed(1) + '%';
+      confidence = 'N/A';
     }
   } else {
-    // No score available
     statusClass = 'safe';
     statusIcon = 'safe';
     statusText = 'Safe';
     confidence = 'N/A';
   }
-} else {
-  // No result object at all
-  statusClass = 'safe';
-  statusIcon = 'safe';
-  statusText = 'Safe';
-  confidence = 'N/A';
-}
 
   const preview = tweetText.length > 50 ? tweetText.substring(0, 50) + '...' : tweetText;
+
   const expandedContent = isExpanded ? `
     <div class="sentiment-tweet-expanded">
       <div><strong>Full Tweet:</strong></div>
@@ -480,6 +469,7 @@ if (result && result.loading) {
     </div>
   ` : '';
 
+  // FIX: No inline onclick anywhere — Get Help uses class-based event delegation above
   return `
     <div class="sentiment-tweet-card ${statusClass}" data-tweet-text="${tweetText.replace(/"/g, '&quot;')}" id="${cardId}">
       <div class="sentiment-tweet-header">
@@ -497,28 +487,21 @@ function addTweetCard(tweetText, result) {
   const content = document.getElementById('sentiment-sidebar-content');
   if (!content) return;
 
-  // Remove empty state if present
   const emptyState = content.querySelector('.sentiment-empty-state');
   if (emptyState) {
     emptyState.remove();
   }
 
-  // Check if card already exists
   const cardId = `tweet-card-${tweetText.substring(0, 20).replace(/\s/g, '-')}`;
   let existingCard = document.getElementById(cardId);
-  
+
   if (existingCard) {
-    // Update existing card
     existingCard.outerHTML = createTweetCard(tweetText, result, false);
   } else {
-    // Add new card at the top
     const cardHTML = createTweetCard(tweetText, result, false);
     content.insertAdjacentHTML('afterbegin', cardHTML);
   }
 
-  // Click handlers are handled via event delegation set up in createSidebar()
-
-  // Update stats
   updateStats();
 }
 
@@ -536,56 +519,47 @@ async function processAnalysisQueue() {
 
   while (sidebarState.analysisQueue.length > 0 && sidebarState.activeRequests < sidebarState.maxConcurrent) {
     const { tweetText, tweetElement } = sidebarState.analysisQueue.shift();
-    
-    // Skip if already analyzed
+
     if (sidebarState.analyzedTweets.has(tweetText)) {
       continue;
     }
 
-    // Show loading card
     addTweetCard(tweetText, { loading: true });
 
     sidebarState.activeRequests++;
-    
+
     classifyTweet(tweetText).then(result => {
       sidebarState.activeRequests--;
-      
-      // Store result
+
       sidebarState.analyzedTweets.set(tweetText, result);
       sidebarState.tweetElements.set(tweetElement, { text: tweetText, result });
 
-// Update stats
-if (result && result.detail) {
-  const score = result.detail.top_score;
-  const label = result.label;
+      if (result && result.detail) {
+        const score = result.detail.top_score;
+        const label = result.label;
 
-  if (score <= 0.50) {
-    sidebarState.stats.safe++;
-  } else if (score > 0.50 && score < 0.75 && label === false) {
-    sidebarState.stats.warning++;
-  } else if (score >= 0.75 && label === true) {
-    sidebarState.stats.critical++;
+        if (score <= 0.50) {
+          sidebarState.stats.safe++;
+        } else if (score > 0.50 && score < 0.75 && label === false) {
+          sidebarState.stats.warning++;
+        } else if (score >= 0.75 && label === true) {
+          sidebarState.stats.critical++;
+          try {
+            chrome.runtime.sendMessage({
+              action: "showDistressNotification",
+              textPreview: tweetText.substring(0, 120)
+            });
+          } catch (e) {
+            console.error("Failed to send distress notification message:", e);
+          }
+        } else {
+          sidebarState.stats.safe++;
+        }
+      }
+      sidebarState.stats.total++;
 
-    // Notify background script about critical distress so it can show a notification
-    try {
-      chrome.runtime.sendMessage({
-        action: "showDistressNotification",
-        textPreview: tweetText.substring(0, 120)
-      });
-    } catch (e) {
-      console.error("Failed to send distress notification message:", e);
-    }
-  } else {
-    // Optional: handle cases that don't fit neatly
-    sidebarState.stats.safe++;
-  }
-}
-sidebarState.stats.total++;
-
-      // Update card with result
       addTweetCard(tweetText, result);
 
-      // Continue processing queue
       sidebarState.processingQueue = false;
       processAnalysisQueue();
     }).catch(err => {
@@ -629,26 +603,23 @@ function collectAllVisibleTweets() {
     'article[data-testid="tweet"]',
     'article[role="article"]'
   ];
-  
+
   const visibleTweets = [];
   const viewportHeight = window.innerHeight;
   const viewportWidth = window.innerWidth;
-  
+
   for (let selector of tweetSelectors) {
     document.querySelectorAll(selector).forEach(tweet => {
       const rect = tweet.getBoundingClientRect();
-      // Check if tweet is in viewport (with small margin for better detection)
-      if (rect.top < viewportHeight + 100 && rect.bottom > -100 && 
+      if (rect.top < viewportHeight + 100 && rect.bottom > -100 &&
           rect.left < viewportWidth + 100 && rect.right > -100) {
-        // Only add if we can extract text from it
         if (getTweetText(tweet)) {
           visibleTweets.push(tweet);
         }
       }
     });
   }
-  
-  // Remove duplicates based on tweet text
+
   const seenTexts = new Set();
   return visibleTweets.filter(tweet => {
     const text = getTweetText(tweet);
@@ -665,17 +636,15 @@ function initViewportObserver() {
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
-        // Tweet entered viewport - queue for analysis
         queueTweetForAnalysis(entry.target);
       }
     });
   }, {
     root: null,
-    rootMargin: '50px', // Start analyzing slightly before tweet enters viewport
+    rootMargin: '50px',
     threshold: 0.1
   });
 
-  // Observe all tweet articles
   const observeTweets = () => {
     const tweetSelectors = [
       'article[data-testid="tweet"]',
@@ -692,10 +661,8 @@ function initViewportObserver() {
     }
   };
 
-  // Initial observation
   observeTweets();
 
-  // Watch for new tweets (Twitter's infinite scroll)
   const mutationObserver = new MutationObserver(() => {
     observeTweets();
   });
@@ -705,37 +672,32 @@ function initViewportObserver() {
     subtree: true
   });
 
-  // Also check periodically (backup)
   setInterval(observeTweets, 2000);
 }
 
 // Initialize sidebar when page loads
 function initSidebar() {
-  // Wait for Twitter to load
   const checkTwitterLoaded = setInterval(() => {
     if (document.querySelector('article[data-testid="tweet"]') || document.body) {
       clearInterval(checkTwitterLoaded);
       createSidebar();
-      
-      // Analyze all visible tweets on initial load
+
       setTimeout(() => {
         const visibleTweets = collectAllVisibleTweets();
         console.log(`📊 Found ${visibleTweets.length} visible tweets to analyze`);
         visibleTweets.forEach(tweet => {
           queueTweetForAnalysis(tweet);
         });
-      }, 500); // Small delay to ensure sidebar is fully rendered
-      
+      }, 500);
+
       initViewportObserver();
     }
   }, 500);
 
-  // Timeout after 10 seconds
   setTimeout(() => {
     clearInterval(checkTwitterLoaded);
     createSidebar();
-    
-    // Analyze all visible tweets on initial load
+
     setTimeout(() => {
       const visibleTweets = collectAllVisibleTweets();
       console.log(`📊 Found ${visibleTweets.length} visible tweets to analyze`);
@@ -743,7 +705,7 @@ function initSidebar() {
         queueTweetForAnalysis(tweet);
       });
     }, 500);
-    
+
     initViewportObserver();
   }, 10000);
 }
@@ -752,9 +714,7 @@ function initSidebar() {
 // EXISTING FUNCTIONALITY (for popup compatibility)
 // ============================
 
-// Extract the first tweet text
 function getFirstTweet() {
-  // Try multiple selectors for tweets as Twitter's DOM structure can change
   let selectors = [
     '[data-testid="tweetText"]',
     '[data-testid="tweet-text"]',
@@ -775,7 +735,7 @@ function getFirstTweet() {
   return null;
 }
 
-// Listen for popup.js request
+// Listen for messages from popup/background
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log("Received message:", request);
 
@@ -799,12 +759,10 @@ new MutationObserver(() => {
   const url = location.href;
   if (url !== lastUrl) {
     lastUrl = url;
-    // Reset state on navigation
     sidebarState.analyzedTweets.clear();
     sidebarState.tweetElements.clear();
     sidebarState.analysisQueue = [];
     sidebarState.stats = { safe: 0, warning: 0, critical: 0, total: 0 };
-    // Reinitialize sidebar on navigation
     setTimeout(initSidebar, 1000);
   }
 }).observe(document, { subtree: true, childList: true });

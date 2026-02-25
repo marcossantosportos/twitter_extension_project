@@ -5,37 +5,50 @@ console.log("🔄 Background script starting...");
 // Keep service worker alive
 let keepAliveInterval;
 
-// Fired when extension is installed or updated
-chrome.runtime.onInstalled.addListener(() => {
-  console.log("✅ Twitter Sentiment Extension installed.");
-
+// ============================
+// FIX 1: Extract keepAlive setup into a reusable function so it runs
+// on BOTH onInstalled AND onStartup. Previously keepAliveInterval was
+// only set inside onInstalled, meaning a service worker restart (which
+// fires onStartup, not onInstalled) would never start the heartbeat.
+// ============================
+function startKeepAlive() {
+  if (keepAliveInterval) {
+    clearInterval(keepAliveInterval);
+  }
   keepAliveInterval = setInterval(() => {
     console.log("💙 Service worker heartbeat");
   }, 20000);
+}
+
+// Fired when extension is installed or updated
+chrome.runtime.onInstalled.addListener(() => {
+  console.log("✅ Twitter Sentiment Extension installed.");
+  startKeepAlive();
 });
 
-// Fired when service worker starts up
+// Fired when service worker starts up after being terminated
 chrome.runtime.onStartup.addListener(() => {
   console.log("🚀 Twitter Sentiment Extension service worker started.");
+  // FIX 1 (continued): Also start heartbeat on startup, not just on install
+  startKeepAlive();
 });
 
 // Notification click handlers - open popup when user interacts
 if (chrome.notifications) {
   chrome.notifications.onButtonClicked.addListener((notificationId, buttonIndex) => {
-    try {
-      chrome.action.openPopup();
-    } catch (e) {
+    // FIX 2: chrome.action.openPopup() returns a Promise in MV3 — use .catch()
+    // instead of try/catch, which doesn't catch Promise rejections
+    chrome.action.openPopup().catch((e) => {
       console.error("Failed to open popup from notification button:", e);
-    }
+    });
     chrome.notifications.clear(notificationId);
   });
 
   chrome.notifications.onClicked.addListener((notificationId) => {
-    try {
-      chrome.action.openPopup();
-    } catch (e) {
+    // FIX 2 (continued): Same Promise-based error handling
+    chrome.action.openPopup().catch((e) => {
       console.error("Failed to open popup from notification click:", e);
-    }
+    });
     chrome.notifications.clear(notificationId);
   });
 }
@@ -65,17 +78,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  // Handle openPopup request from content script \"Get Help\" button
+  // Handle openPopup request from content script "Get Help" button
+  // FIX 2 (continued): chrome.action.openPopup() is async — use .then/.catch
   if (message.action === "openPopup") {
-    try {
-      chrome.action.openPopup();
-      console.log("✅ Popup opened successfully via openPopup message");
-      sendResponse({ success: true });
-    } catch (err) {
-      console.error("Failed to open popup:", err);
-      sendResponse({ success: false, error: err?.message || String(err) });
-    }
-    return true;
+    chrome.action.openPopup()
+      .then(() => {
+        console.log("✅ Popup opened successfully via openPopup message");
+        sendResponse({ success: true });
+      })
+      .catch((err) => {
+        console.error("Failed to open popup:", err);
+        sendResponse({ success: false, error: err?.message || String(err) });
+      });
+    return true; // Keep message channel open for async response
   }
 
   // Handle classification requests from content script
@@ -245,9 +260,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-// Clean up interval when service worker is about to be terminated
-self.addEventListener('beforeunload', () => {
-  if (keepAliveInterval) {
-    clearInterval(keepAliveInterval);
-  }
-});
+// FIX 3: Removed self.addEventListener('beforeunload') — this event does NOT
+// fire in MV3 service workers. It was a no-op and gave false confidence that
+// cleanup was happening. The keepAliveInterval is managed by the JS runtime
+// and will be cleaned up automatically when the service worker terminates.

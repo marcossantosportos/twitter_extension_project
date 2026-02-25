@@ -392,13 +392,25 @@ async function analyzeOnLoad() {
         html += `<div class="resource-item-title">${item.title}</div>`;
         html += `<div class="resource-item-summary">${item.summary || ''}</div>`;
         html += `<span class="resource-item-kind">${kindLabel}</span>`;
-        html += `<button class="resource-open-btn" data-url="${item.url}">Open</button>`;
+        // FIX: Use data-url attribute instead of inline onclick (blocked by CSP in MV3)
+        html += `<button class="resource-open-btn" data-url="${item.url.replace(/"/g, '&quot;')}">Open</button>`;
         html += `</div>`;
       });
       html += `</div>`;
     });
 
     resourcesContent.innerHTML = html;
+
+    // FIX: Attach click listeners after innerHTML is set (CSP-safe, no inline handlers)
+    // Use chrome.tabs.create which is the correct MV3 API for opening URLs from a popup
+    resourcesContent.querySelectorAll('.resource-open-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const url = btn.getAttribute('data-url');
+        if (url) {
+          chrome.tabs.create({ url: url });
+        }
+      });
+    });
   }
 
   function showResourcesView() {
@@ -523,20 +535,7 @@ async function analyzeOnLoad() {
     }, 10000);
   }
 
-  // ✅ FIX: Shared distress UI function used by both normal flow and injected tweet flow
   async function triggerDistressFlow(tweetText) {
-    const createTweetPreview = (text) => {
-      const escapedText = text.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-      const escapedTextForCopy = text.replace(/"/g, '&quot;');
-      return `
-        <div class="tweet-preview">
-          <div class="tweet-preview-header">📝 Analyzed Tweet</div>
-          <div class="tweet-preview-text">${escapedText}</div>
-          <button class="copy-btn" data-copy-text="${escapedTextForCopy}" style="margin-top: 8px;">Copy Tweet</button>
-        </div>
-      `;
-    };
-
     const renderDistressUI = (city, helpline, centre, tweetText, approximate = false) => {
       const resultDiv = document.getElementById("result");
       const escapedTweet = tweetText.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -590,26 +589,17 @@ async function analyzeOnLoad() {
     );
   }
 
-  // ✅ FIX: Check for injected tweet from sidebar "Get Help" button first,
-  // before falling back to the normal getTweet flow
   chrome.storage.local.get(['injectedTweet', 'injectedTweetTimestamp'], async (stored) => {
     const isRecent = stored.injectedTweetTimestamp &&
-                     (Date.now() - stored.injectedTweetTimestamp < 30000); // 30 second window
+                     (Date.now() - stored.injectedTweetTimestamp < 30000);
 
     if (stored.injectedTweet && isRecent) {
       console.log("✅ Found injected tweet from sidebar Get Help button");
-
-      // Clear storage immediately so it doesn't trigger again on next open
       chrome.storage.local.remove(['injectedTweet', 'injectedTweetTimestamp']);
-
       const tweetText = stored.injectedTweet;
-
-      // We already know this is a critical tweet — skip classification
-      // and go straight to distress UI
       await triggerDistressFlow(tweetText);
 
     } else {
-      // Normal flow — ask content script for the tweet on the active page
       console.log("🔄 Popup sending message to background script...");
 
       chrome.runtime.sendMessage({ action: "getTweet" }, async (response) => {
