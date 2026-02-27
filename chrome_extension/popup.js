@@ -24,7 +24,6 @@ const centres = {
   "Bengaluru": "Abhaya Hospital, 17, Dr MH Mari Gowda Road (Hosur Road), Opposite 9th Cross Bus Stop, Wilson Garden, Bengaluru - 560027"
 };
 
-// Map city name variants to canonical keys used in helplines/centres
 const cityAliases = {
   "shimoga": "Shivamogga",
   "shivamogga": "Shivamogga",
@@ -33,7 +32,6 @@ const cityAliases = {
   "bangalore": "Bangalore",
 };
 
-// Upbeat songs (open a direct YouTube watch URL so it starts playing immediately)
 const calmingSongs = [
   { title: "Happy — Pharrell Williams", videoId: "ZbZSe6N_BXs" },
   { title: "Best Day of My Life — American Authors", videoId: "Y66j_BUCBMY" },
@@ -59,7 +57,6 @@ function normalizeCityName(name) {
   return cityAliases[key] || trimmed;
 }
 
-// Copy text to clipboard with visual feedback
 async function copyToClipboard(text, buttonElement) {
   try {
     await navigator.clipboard.writeText(text);
@@ -138,6 +135,7 @@ async function getCityFromIP() {
       console.error("IP geolocation provider failed:", err);
     }
   }
+
   return "National";
 }
 
@@ -192,9 +190,9 @@ async function classifyTweet(tweetText) {
 // This function will now run automatically when the popup opens
 async function analyzeOnLoad() {
   document.getElementById("result").innerText = "Analyzing tweet...";
+  console.log("🔄 Popup opening...");
 
-  console.log("🔄 Popup sending message to background script...");
-
+  // Chatbot functions
   let chatbotSessionId = null;
   let chatbotStep = 0;
 
@@ -212,7 +210,9 @@ async function analyzeOnLoad() {
         body: JSON.stringify({})
       });
 
-      if (!response.ok) throw new Error("Failed to start chat");
+      if (!response.ok) {
+        throw new Error("Failed to start chat");
+      }
 
       const data = await response.json();
       chatbotSessionId = data.session_id;
@@ -261,7 +261,9 @@ async function analyzeOnLoad() {
         })
       });
 
-      if (!response.ok) throw new Error("Failed to send message");
+      if (!response.ok) {
+        throw new Error("Failed to send message");
+      }
 
       const data = await response.json();
       chatbotStep++;
@@ -272,6 +274,7 @@ async function analyzeOnLoad() {
         chatbotInput.focus();
       } else if (data.message) {
         addChatbotMessage(data.message, 'bot');
+
         if (data.show_buttons) {
           setTimeout(() => {
             chatbotActionButtons.classList.add('active');
@@ -292,7 +295,6 @@ async function analyzeOnLoad() {
     }
   }
 
-  // Play a random upbeat song
   const playRandomSong = (buttonEl) => {
     if (!calmingSongs.length) return;
     const track = calmingSongs[Math.floor(Math.random() * calmingSongs.length)];
@@ -309,31 +311,23 @@ async function analyzeOnLoad() {
     }, 1500);
   };
 
-  // ============================
-  // Emergency contacts — opens a separate WhatsApp tab for EACH number
-  // ============================
-  const emergencyContacts = [
-    { name: "Contact 1", number: "9637124027" },
-    { name: "Contact 2", number: "9823758251" },
-    { name: "Contact 3", number: "8888862588" },
-    { name: "Contact 4", number: "8766914078" },
-  ];
-
   function messageCloseOne() {
+    // ── All 3 emergency numbers to contact simultaneously ──
+    const emergencyNumbers = ["9637124027", "8888862588", "9823758251"];
     const messageText = encodeURIComponent("This user needs your help. Please reach out to them.");
-    const allNumbers = emergencyContacts.map(c => c.number).join(", ");
-
     let copied = false;
+
     (async () => {
-      // Copy all numbers to clipboard
+      // Copy all numbers to clipboard as a comma-separated list
+      const allNumbersText = emergencyNumbers.join(', ');
       try {
-        await navigator.clipboard.writeText(allNumbers);
+        await navigator.clipboard.writeText(allNumbersText);
         copied = true;
       } catch (err) {
         console.warn("Failed to copy to clipboard:", err);
         try {
           const textArea = document.createElement('textarea');
-          textArea.value = allNumbers;
+          textArea.value = allNumbersText;
           textArea.style.position = 'fixed';
           textArea.style.opacity = '0';
           document.body.appendChild(textArea);
@@ -346,23 +340,20 @@ async function analyzeOnLoad() {
         }
       }
 
-      // Open a WhatsApp tab for each contact, staggered 700 ms apart so
-      // browsers don't treat them as a popup burst and block them.
-      emergencyContacts.forEach((contact, index) => {
+      // Open a separate WhatsApp tab for each number with a 1-second gap
+      // between each so the browser does not block simultaneous window.open calls
+      emergencyNumbers.forEach((number, index) => {
         setTimeout(() => {
-          const cleanNumber = contact.number.replace(/[^0-9]/g, '');
-          globalThis.open(`https://wa.me/${cleanNumber}?text=${messageText}`, '_blank');
-        }, index * 700);
+          const whatsappUrl = `https://wa.me/${number.replace(/[^0-9]/g, '')}?text=${messageText}`;
+          globalThis.open(whatsappUrl, '_blank');
+        }, index * 1000);
       });
 
-      // Show feedback UI after all tabs have been triggered
-      setTimeout(() => {
-        showMessageFeedback(allNumbers, copied);
-      }, emergencyContacts.length * 700);
+      // Show feedback panel listing all numbers
+      showMessageFeedback(emergencyNumbers, copied);
     })();
   }
 
-  // Resources functionality
   let resourcesData = null;
 
   async function loadResources() {
@@ -396,7 +387,9 @@ async function analyzeOnLoad() {
   function renderResources(resources) {
     const resourcesContent = document.getElementById('resources-content');
     if (!resourcesContent || !resources || !resources.categories) {
-      resourcesContent.innerHTML = '<div style="text-align: center; color: #888; padding: 20px;">No resources available.</div>';
+      if (resourcesContent) {
+        resourcesContent.innerHTML = '<div style="text-align: center; color: #888; padding: 20px;">No resources available.</div>';
+      }
       return;
     }
 
@@ -406,18 +399,29 @@ async function analyzeOnLoad() {
       html += `<div class="resources-category-title">${category.title}</div>`;
       category.items.forEach(item => {
         const kindLabel = item.kind === 'article' ? '📄 Article' :
-                         item.kind === 'video'   ? '🎥 Video'   : '📝 Exercise';
+                         item.kind === 'video' ? '🎥 Video' :
+                         '📝 Exercise';
         html += `<div class="resource-item">`;
         html += `<div class="resource-item-title">${item.title}</div>`;
         html += `<div class="resource-item-summary">${item.summary || ''}</div>`;
         html += `<span class="resource-item-kind">${kindLabel}</span>`;
-        html += `<button class="resource-open-btn" onclick="window.open('${item.url}', '_blank')">Open</button>`;
+        html += `<button class="resource-open-btn" data-url="${item.url.replace(/"/g, '&quot;')}">Open</button>`;
         html += `</div>`;
       });
       html += `</div>`;
     });
 
     resourcesContent.innerHTML = html;
+
+    // Attach click listeners after innerHTML is set (CSP-safe, no inline handlers)
+    resourcesContent.querySelectorAll('.resource-open-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const url = btn.getAttribute('data-url');
+        if (url) {
+          chrome.tabs.create({ url: url });
+        }
+      });
+    });
   }
 
   function showResourcesView() {
@@ -435,10 +439,13 @@ async function analyzeOnLoad() {
       chatbotActionButtons.classList.remove('active');
       chatbotActionButtons.style.display = 'none';
     }
+
     if (resourcesView) {
       resourcesView.classList.add('active');
       if (!resourcesData) {
-        loadResources().then(data => { if (data) renderResources(data); });
+        loadResources().then(data => {
+          if (data) renderResources(data);
+        });
       } else {
         renderResources(resourcesData);
       }
@@ -448,17 +455,18 @@ async function analyzeOnLoad() {
   function showChatView() {
     const chatbotMessages = document.getElementById('chatbot-messages');
     const resourcesView = document.getElementById('chatbot-resources-view');
+
     if (chatbotMessages) chatbotMessages.style.display = 'block';
     if (resourcesView) resourcesView.classList.remove('active');
   }
 
   function setupChatbotListeners() {
-    const chatbotSendBtn     = document.getElementById('chatbot-send-btn');
-    const chatbotInput       = document.getElementById('chatbot-input');
-    const chatbotMessageBtn  = document.getElementById('chatbot-message-btn');
-    const chatbotSongBtn     = document.getElementById('chatbot-song-btn');
+    const chatbotSendBtn = document.getElementById('chatbot-send-btn');
+    const chatbotInput = document.getElementById('chatbot-input');
+    const chatbotMessageBtn = document.getElementById('chatbot-message-btn');
+    const chatbotSongBtn = document.getElementById('chatbot-song-btn');
     const chatbotResourcesBtn = document.getElementById('chatbot-resources-btn');
-    const resourcesBackBtn   = document.getElementById('resources-back-btn');
+    const resourcesBackBtn = document.getElementById('resources-back-btn');
 
     if (chatbotSendBtn) {
       chatbotSendBtn.addEventListener('click', () => {
@@ -476,16 +484,28 @@ async function analyzeOnLoad() {
       });
     }
 
-    if (chatbotMessageBtn)   chatbotMessageBtn.addEventListener('click', messageCloseOne);
-    if (chatbotSongBtn)      chatbotSongBtn.addEventListener('click', () => playRandomSong(chatbotSongBtn));
-    if (chatbotResourcesBtn) chatbotResourcesBtn.addEventListener('click', showResourcesView);
-    if (resourcesBackBtn)    resourcesBackBtn.addEventListener('click', showChatView);
+    if (chatbotMessageBtn) {
+      chatbotMessageBtn.addEventListener('click', messageCloseOne);
+    }
+
+    if (chatbotSongBtn) {
+      chatbotSongBtn.addEventListener('click', () => {
+        playRandomSong(document.getElementById('chatbot-song-btn'));
+      });
+    }
+
+    if (chatbotResourcesBtn) {
+      chatbotResourcesBtn.addEventListener('click', showResourcesView);
+    }
+
+    if (resourcesBackBtn) {
+      resourcesBackBtn.addEventListener('click', showChatView);
+    }
   }
 
-  // ⭐ Call setupChatbotListeners here, after it's defined
   setupChatbotListeners();
 
-  // Helper function to show message feedback
+  // Updated to accept an array of numbers instead of a single number string
   function showMessageFeedback(numbers, copied) {
     const resultDiv = document.getElementById('result');
     if (!resultDiv) return;
@@ -497,166 +517,91 @@ async function analyzeOnLoad() {
     feedback.className = 'call-feedback';
     feedback.style.cssText = 'margin-top: 12px; padding: 12px; background-color: #1a1a1a; border: 2px solid #dc3545; border-radius: 8px; font-size: 13px; color: #ffffff; text-align: center;';
 
-    const copiedMsg = copied
-      ? '<div style="font-weight: bold; margin-bottom: 8px; color: #28a745;">✓ All numbers copied to clipboard!</div>'
+    const headerMsg = copied
+      ? '<div style="font-weight: bold; margin-bottom: 8px; color: #28a745;">✓ Numbers copied to clipboard!</div>'
       : '<div style="font-weight: bold; margin-bottom: 8px;">💬 Emergency Contacts</div>';
 
+    // Render each number on its own line
+    const numbersDisplay = numbers.map(n =>
+      `<div style="font-size: 18px; font-weight: bold; margin: 6px 0; color: #1da1f2; letter-spacing: 2px; font-family: monospace;">${n}</div>`
+    ).join('');
+
     const instructions = `<div style="font-size: 11px; color: #888; margin-top: 8px; line-height: 1.4;">
-      A WhatsApp tab has been opened for each contact with a pre-filled message.<br>
-      ${copied ? 'All numbers are also copied to your clipboard.' : ''}
+      WhatsApp is opening for each contact with a pre-filled message.<br>
+      ${copied ? 'All numbers are also copied to clipboard.' : ''}
     </div>`;
 
-    // One "Open again" button per contact
-    const messageText = encodeURIComponent("This user needs your help. Please reach out to them.");
-    const contactLinks = emergencyContacts.map(contact => {
-      const cleanNumber = contact.number.replace(/[^0-9]/g, '');
-      return `<a href="https://wa.me/${cleanNumber}?text=${messageText}" target="_blank"
-        style="display:inline-block; margin:4px; padding:8px 14px; background-color:#25D366;
-               color:white; text-decoration:none; border-radius:8px; font-weight:bold;
-               font-size:12px; cursor:pointer;">
-        💬 ${contact.number}
-      </a>`;
-    }).join('');
-
     feedback.innerHTML = `
-      ${copiedMsg}
-      <div style="font-size: 12px; color: #888; margin-bottom: 6px;">Contacts messaged:</div>
-      <div style="font-size: 13px; font-weight: bold; margin: 6px 0; color: #1da1f2; font-family: monospace; letter-spacing: 1px; word-break: break-all;">
-        ${numbers}
-      </div>
+      ${headerMsg}
+      <div style="margin: 10px 0;">${numbersDisplay}</div>
       ${instructions}
-      <div style="margin-top: 10px;">${contactLinks}</div>
     `;
+
+    // "Re-open All" button in case any tab was blocked by the browser
+    const messageText = encodeURIComponent("This user needs your help. Please reach out to them.");
+    const reopenBtn = document.createElement('button');
+    reopenBtn.textContent = '💬 Re-open All WhatsApp Chats';
+    reopenBtn.style.cssText = 'display: block; width: 100%; margin-top: 10px; padding: 10px 16px; background-color: #25D366; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 13px; cursor: pointer;';
+    reopenBtn.addEventListener('click', () => {
+      numbers.forEach((number, index) => {
+        setTimeout(() => {
+          const whatsappUrl = `https://wa.me/${number.replace(/[^0-9]/g, '')}?text=${messageText}`;
+          globalThis.open(whatsappUrl, '_blank');
+        }, index * 1000);
+      });
+    });
+    feedback.appendChild(reopenBtn);
 
     resultDiv.appendChild(feedback);
 
+    // Auto-remove after 15 seconds (slightly longer since there are 3 contacts)
     setTimeout(() => {
       if (feedback.parentNode) feedback.parentNode.removeChild(feedback);
     }, 15000);
   }
 
-  // Send message to background script which will relay to content script
-  chrome.runtime.sendMessage({ action: "getTweet" }, async (response) => {
-    console.log("📨 Popup received response:", response);
+  async function triggerDistressFlow(tweetText) {
+    const renderDistressUI = (city, helpline, centre, tweetText, approximate = false) => {
+      const resultDiv = document.getElementById("result");
+      const escapedTweet = tweetText.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      const escapedTweetForCopy = tweetText.replace(/"/g, '&quot;');
 
-    // #region agent log
-    fetch('http://127.0.0.1:7670/ingest/3b2d8e2b-e5c5-44ab-b4f2-d3bbfdc1db0a',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9fa83b'},
-      body:JSON.stringify({
-        sessionId:'9fa83b',
-        runId:'pre-fix',
-        hypothesisId:'H2',
-        location:'popup.js:622',
-        message:'popup getTweet response',
-        data:{
-          href:window.location.href,
-          hasError:!!(response && response.error),
-          error:response && response.error,
-          hasTweet:!!(response && response.tweet)
-        },
-        timestamp:Date.now()
-      })
-    }).catch(()=>{});
-    // #endregion agent log
-
-    if (chrome.runtime.lastError) {
-      console.error("Extension error:", chrome.runtime.lastError.message);
-      document.getElementById("result").innerText = "Error: Please reload the extension and try again.";
-      return;
-    }
-
-    if (response && response.error) {
-      console.error("Background script error:", response.error);
-      document.getElementById("result").innerText = "Error: " + response.error;
-      return;
-    }
-
-    let tweetText = response?.tweet;
-    if (!tweetText) {
-      document.getElementById("result").innerText = "No tweet found on this page.";
-      return;
-    }
-
-    let clf = await classifyTweet(tweetText);
-
-    const createTweetPreview = (text) => {
-      const escapedText = text.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-      const escapedTextForCopy = text.replace(/"/g, '&quot;');
-      return `
+      resultDiv.innerHTML = `
+        <h4>⚠️ Signs of distress detected</h4>
+        <div class="info-row">
+          <b>City:</b> ${city}${approximate ? ' (approximate)' : ''}
+        </div>
+        <div class="info-row">
+          <b>Suicide Helpline:</b> ${helpline}
+          <button class="copy-btn" data-copy-text="${helpline.replace(/"/g, '&quot;')}">Copy</button>
+        </div>
+        <div class="info-row">
+          <b>Mental Health Centre:</b> ${centre}
+          <button class="copy-btn" data-copy-text="${centre.replace(/"/g, '&quot;')}">Copy</button>
+        </div>
         <div class="tweet-preview">
           <div class="tweet-preview-header">📝 Analyzed Tweet</div>
-          <div class="tweet-preview-text">${escapedText}</div>
-          <button class="copy-btn" data-copy-text="${escapedTextForCopy}" style="margin-top: 8px;">Copy Tweet</button>
+          <div class="tweet-preview-text">${escapedTweet}</div>
+          <button class="copy-btn" data-copy-text="${escapedTweetForCopy}" style="margin-top: 8px;">Copy Tweet</button>
         </div>
       `;
+
+      resultDiv.querySelectorAll('.copy-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          copyToClipboard(btn.getAttribute('data-copy-text'), btn);
+        });
+      });
+
+      setTimeout(() => startChatbotFlow(), 2500);
     };
 
-    if (!clf || clf.label !== true) {
-      const resultDiv = document.getElementById("result");
-      if (clf && clf.detail) {
-        const top = clf.detail.top_label ? ` (top: ${clf.detail.top_label} @ ${(clf.detail.top_score||0).toFixed(2)})` : "";
-        resultDiv.innerHTML = `
-          <div>✅ No sign of depression detected${top}.</div>
-          ${createTweetPreview(tweetText)}
-          <details style="margin-top:8px"><summary>Technical Details</summary><pre style="white-space:pre-wrap; font-size: 11px;">${
-            JSON.stringify(clf.detail, null, 2)
-          }</pre></details>
-        `;
-      } else {
-        resultDiv.innerHTML = `
-          <div>✅ No sign of depression detected.</div>
-          ${createTweetPreview(tweetText)}
-        `;
-      }
-
-      const tweetCopyBtn = resultDiv.querySelector('.tweet-preview .copy-btn');
-      if (tweetCopyBtn) {
-        tweetCopyBtn.addEventListener('click', () => {
-          copyToClipboard(tweetCopyBtn.getAttribute('data-copy-text'), tweetCopyBtn);
-        });
-      }
-      return;
-    }
-
-    // If distress is found, get location and show resources
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
-        let rawCity = await getCityFromLocation(pos.coords.latitude, pos.coords.longitude);
+        const rawCity = await getCityFromLocation(pos.coords.latitude, pos.coords.longitude);
         const city = normalizeCityName(rawCity);
-        let helpline = helplines[city] || helplines["National"];
-        let centre = centres[city] || "Please contact national helpline for guidance.";
-
-        const resultDiv = document.getElementById("result");
-        const escapedTweet = tweetText.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-        const escapedTweetForCopy = tweetText.replace(/"/g, '&quot;');
-        resultDiv.innerHTML = `
-          <h4>⚠️ Signs of distress detected</h4>
-          <div class="info-row">
-            <b>City:</b> ${city}
-          </div>
-          <div class="info-row">
-            <b>Suicide Helpline:</b> ${helpline}
-            <button class="copy-btn" data-copy-text="${helpline.replace(/"/g, '&quot;')}">Copy</button>
-          </div>
-          <div class="info-row">
-            <b>Mental Health Centre:</b> ${centre}
-            <button class="copy-btn" data-copy-text="${centre.replace(/"/g, '&quot;')}">Copy</button>
-          </div>
-          <div class="tweet-preview">
-            <div class="tweet-preview-header">📝 Analyzed Tweet</div>
-            <div class="tweet-preview-text">${escapedTweet}</div>
-            <button class="copy-btn" data-copy-text="${escapedTweetForCopy}" style="margin-top: 8px;">Copy Tweet</button>
-          </div>
-        `;
-
-        resultDiv.querySelectorAll('.copy-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            copyToClipboard(btn.getAttribute('data-copy-text'), btn);
-          });
-        });
-
-        setTimeout(() => { startChatbotFlow(); }, 2500);
+        const helpline = helplines[city] || helplines["National"];
+        const centre = centres[city] || "Please contact national helpline for guidance.";
+        renderDistressUI(city, helpline, centre, tweetText, false);
       },
       async (err) => {
         console.error("Geolocation error:", err);
@@ -664,38 +609,92 @@ async function analyzeOnLoad() {
         const city = normalizeCityName(rawCity);
         const helpline = helplines[city] || helplines["National"];
         const centre = centres[city] || "Please contact national helpline for guidance.";
-        const resultDiv = document.getElementById("result");
-        const escapedTweet = tweetText.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-        const escapedTweetForCopy = tweetText.replace(/"/g, '&quot;');
-        resultDiv.innerHTML = `
-          <h4>⚠️ Signs of distress detected</h4>
-          <div class="info-row">
-            <b>City:</b> ${city} (approximate)
-          </div>
-          <div class="info-row">
-            <b>Suicide Helpline:</b> ${helpline}
-            <button class="copy-btn" data-copy-text="${helpline.replace(/"/g, '&quot;')}">Copy</button>
-          </div>
-          <div class="info-row">
-            <b>Mental Health Centre:</b> ${centre}
-            <button class="copy-btn" data-copy-text="${centre.replace(/"/g, '&quot;')}">Copy</button>
-          </div>
-          <div class="tweet-preview">
-            <div class="tweet-preview-header">📝 Analyzed Tweet</div>
-            <div class="tweet-preview-text">${escapedTweet}</div>
-            <button class="copy-btn" data-copy-text="${escapedTweetForCopy}" style="margin-top: 8px;">Copy Tweet</button>
-          </div>
-        `;
-
-        resultDiv.querySelectorAll('.copy-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            copyToClipboard(btn.getAttribute('data-copy-text'), btn);
-          });
-        });
-
-        setTimeout(() => { startChatbotFlow(); }, 2500);
+        renderDistressUI(city, helpline, centre, tweetText, true);
       }
     );
+  }
+
+  chrome.storage.local.get(['injectedTweet', 'injectedTweetTimestamp'], async (stored) => {
+    const isRecent = stored.injectedTweetTimestamp &&
+                     (Date.now() - stored.injectedTweetTimestamp < 30000);
+
+    if (stored.injectedTweet && isRecent) {
+      console.log("✅ Found injected tweet from sidebar Get Help button");
+      chrome.storage.local.remove(['injectedTweet', 'injectedTweetTimestamp']);
+      const tweetText = stored.injectedTweet;
+      await triggerDistressFlow(tweetText);
+
+    } else {
+      console.log("🔄 Popup sending message to background script...");
+
+      chrome.runtime.sendMessage({ action: "getTweet" }, async (response) => {
+        console.log("📨 Popup received response:", response);
+
+        if (chrome.runtime.lastError) {
+          console.error("Extension error:", chrome.runtime.lastError.message);
+          document.getElementById("result").innerText = "Error: Please reload the extension and try again.";
+          return;
+        }
+
+        if (response && response.error) {
+          console.error("Background script error:", response.error);
+          document.getElementById("result").innerText = "Error: " + response.error;
+          return;
+        }
+
+        const tweetText = response?.tweet;
+        if (!tweetText) {
+          document.getElementById("result").innerText = "No tweet found on this page.";
+          return;
+        }
+
+        const clf = await classifyTweet(tweetText);
+
+        const createTweetPreview = (text) => {
+          const escapedText = text.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+          const escapedTextForCopy = text.replace(/"/g, '&quot;');
+          return `
+            <div class="tweet-preview">
+              <div class="tweet-preview-header">📝 Analyzed Tweet</div>
+              <div class="tweet-preview-text">${escapedText}</div>
+              <button class="copy-btn" data-copy-text="${escapedTextForCopy}" style="margin-top: 8px;">Copy Tweet</button>
+            </div>
+          `;
+        };
+
+        if (!clf || clf.label !== true) {
+          const resultDiv = document.getElementById("result");
+          if (clf && clf.detail) {
+            const top = clf.detail.top_label
+              ? ` (top: ${clf.detail.top_label} @ ${(clf.detail.top_score || 0).toFixed(2)})`
+              : "";
+            resultDiv.innerHTML = `
+              <div>✅ No sign of depression detected${top}.</div>
+              ${createTweetPreview(tweetText)}
+              <details style="margin-top:8px"><summary>Technical Details</summary>
+                <pre style="white-space:pre-wrap; font-size: 11px;">${JSON.stringify(clf.detail, null, 2)}</pre>
+              </details>
+            `;
+          } else {
+            resultDiv.innerHTML = `
+              <div>✅ No sign of depression detected.</div>
+              ${createTweetPreview(tweetText)}
+            `;
+          }
+
+          const tweetCopyBtn = resultDiv.querySelector('.tweet-preview .copy-btn');
+          if (tweetCopyBtn) {
+            tweetCopyBtn.addEventListener('click', () => {
+              copyToClipboard(tweetCopyBtn.getAttribute('data-copy-text'), tweetCopyBtn);
+            });
+          }
+          return;
+        }
+
+        // Distress detected — use shared distress flow
+        await triggerDistressFlow(tweetText);
+      });
+    }
   });
 }
 
