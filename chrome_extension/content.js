@@ -188,6 +188,34 @@ style.textContent = `
     padding: 40px 20px;
     font-size: 13px;
   }
+
+  /* ============================
+     TWEET HIGHLIGHT BORDERS
+     Applied directly to tweet article elements on the Twitter page
+     ============================ */
+
+  article[data-sentiment="safe"] {
+    border: 2px solid #28a745 !important;
+    border-radius: 12px !important;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+  article[data-sentiment="warning"] {
+    border: 2px solid #ffc107 !important;
+    border-radius: 12px !important;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+  article[data-sentiment="critical"] {
+    border: 2px solid #dc3545 !important;
+    border-radius: 12px !important;
+    box-shadow: 0 0 8px rgba(220, 53, 69, 0.35) !important;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+  article[data-sentiment="loading"] {
+    border: 2px solid #444444 !important;
+    border-radius: 12px !important;
+    opacity: 0.85;
+    transition: border-color 0.3s ease;
+  }
 `;
 document.head.appendChild(style);
 
@@ -267,6 +295,47 @@ async function classifyTweet(tweetText) {
   }
 }
 
+// ============================
+// TWEET HIGHLIGHT FUNCTION
+// Applies a colored border directly to the tweet article element
+// based on the classification result.
+// ============================
+function applyTweetHighlight(tweetElement, result) {
+  if (!tweetElement) return;
+
+  // Always clear the previous sentiment attribute first
+  // so stale colors don't linger if a re-analysis happens
+  tweetElement.removeAttribute('data-sentiment');
+
+  if (!result || result.loading) {
+    tweetElement.setAttribute('data-sentiment', 'loading');
+    return;
+  }
+
+  // On error, remove the highlight entirely — don't mislead the user
+  if (result.error) {
+    return;
+  }
+
+  if (result.detail) {
+    const score = result.detail.top_score ?? null;
+    const label = result.label ?? false;
+
+    if (score === null) return;
+
+    if (score <= 0.50) {
+      tweetElement.setAttribute('data-sentiment', 'safe');
+    } else if (score > 0.50 && score < 0.75 && label === false) {
+      tweetElement.setAttribute('data-sentiment', 'warning');
+    } else if (score >= 0.75 && label === true) {
+      tweetElement.setAttribute('data-sentiment', 'critical');
+    } else {
+      // Borderline case — treat as safe
+      tweetElement.setAttribute('data-sentiment', 'safe');
+    }
+  }
+}
+
 // Create sidebar DOM structure
 function createSidebar() {
   // Remove existing sidebar if present
@@ -330,8 +399,7 @@ function createSidebar() {
   if (content) {
     content.addEventListener('click', (e) => {
 
-      // FIX: Handle "Get Help" button click (CSP-safe — no inline onclick)
-      // Store the tweet text in chrome.storage then ask background to open the popup
+      // Handle "Get Help" button click (CSP-safe — no inline onclick)
       if (e.target.classList.contains('sentiment-get-help-btn')) {
         const card = e.target.closest('.sentiment-tweet-card');
         const tweetTextAttr = card && card.getAttribute('data-tweet-text');
@@ -350,7 +418,7 @@ function createSidebar() {
             }
           );
         }
-        return; // Don't fall through to card toggle
+        return;
       }
 
       // Don't toggle card when clicking any other action button
@@ -389,7 +457,7 @@ function updateStats() {
   if (totalEl) totalEl.textContent = sidebarState.stats.total;
 }
 
-// Create tweet card
+// Create tweet card HTML string
 function createTweetCard(tweetText, result, isExpanded = false) {
   const cardId = `tweet-card-${tweetText.substring(0, 20).replace(/\s/g, '-')}`;
 
@@ -469,7 +537,6 @@ function createTweetCard(tweetText, result, isExpanded = false) {
     </div>
   ` : '';
 
-  // FIX: No inline onclick anywhere — Get Help uses class-based event delegation above
   return `
     <div class="sentiment-tweet-card ${statusClass}" data-tweet-text="${tweetText.replace(/"/g, '&quot;')}" id="${cardId}">
       <div class="sentiment-tweet-header">
@@ -524,15 +591,20 @@ async function processAnalysisQueue() {
       continue;
     }
 
+    // Show loading state — both in sidebar card AND on the tweet itself
     addTweetCard(tweetText, { loading: true });
+    applyTweetHighlight(tweetElement, { loading: true }); // ← NEW: grey border while analyzing
 
     sidebarState.activeRequests++;
+
+    // Capture tweetElement in closure so it's available inside .then()
+    const capturedElement = tweetElement;
 
     classifyTweet(tweetText).then(result => {
       sidebarState.activeRequests--;
 
       sidebarState.analyzedTweets.set(tweetText, result);
-      sidebarState.tweetElements.set(tweetElement, { text: tweetText, result });
+      sidebarState.tweetElements.set(capturedElement, { text: tweetText, result });
 
       if (result && result.detail) {
         const score = result.detail.top_score;
@@ -558,13 +630,23 @@ async function processAnalysisQueue() {
       }
       sidebarState.stats.total++;
 
+      // Update sidebar card with final result
       addTweetCard(tweetText, result);
+
+      // ← NEW: Apply colored border to the actual tweet on the page
+      applyTweetHighlight(capturedElement, result);
 
       sidebarState.processingQueue = false;
       processAnalysisQueue();
     }).catch(err => {
       sidebarState.activeRequests--;
       console.error('Analysis error:', err);
+
+      // Remove loading highlight on error — don't leave a stale grey border
+      if (capturedElement) {
+        capturedElement.removeAttribute('data-sentiment'); // ← NEW
+      }
+
       addTweetCard(tweetText, { error: true });
       sidebarState.processingQueue = false;
       processAnalysisQueue();
@@ -754,15 +836,25 @@ if (document.readyState === 'loading') {
 }
 
 // Also initialize on navigation (Twitter SPA)
+// On URL change: clear all highlight borders, reset state, reinitialize
 let lastUrl = location.href;
 new MutationObserver(() => {
   const url = location.href;
   if (url !== lastUrl) {
     lastUrl = url;
+
+    // ← NEW: Remove all sentiment highlight borders from the old page's tweets
+    // before Twitter's SPA swaps in new content
+    document.querySelectorAll('article[data-sentiment]').forEach(el => {
+      el.removeAttribute('data-sentiment');
+    });
+
+    // Reset all state
     sidebarState.analyzedTweets.clear();
     sidebarState.tweetElements.clear();
     sidebarState.analysisQueue = [];
     sidebarState.stats = { safe: 0, warning: 0, critical: 0, total: 0 };
+
     setTimeout(initSidebar, 1000);
   }
 }).observe(document, { subtree: true, childList: true });
