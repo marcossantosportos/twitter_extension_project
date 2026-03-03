@@ -312,8 +312,8 @@ async function analyzeOnLoad() {
   };
 
   function messageCloseOne() {
-    // ── All 3 emergency numbers to contact simultaneously ──
-    const emergencyNumbers = ["9637124027", "8888862588", "9823758251"];
+    // ── All 4 emergency numbers to contact simultaneously ──
+    const emergencyNumbers = ["9823758251", "8888862588", "8766914078", "9637124027"];
     const messageText = encodeURIComponent("This user needs your help. Please reach out to them.");
     let copied = false;
 
@@ -505,7 +505,7 @@ async function analyzeOnLoad() {
 
   setupChatbotListeners();
 
-  // Updated to accept an array of numbers instead of a single number string
+  // Accepts an array of numbers and displays feedback for all of them
   function showMessageFeedback(numbers, copied) {
     const resultDiv = document.getElementById('result');
     if (!resultDiv) return;
@@ -554,7 +554,7 @@ async function analyzeOnLoad() {
 
     resultDiv.appendChild(feedback);
 
-    // Auto-remove after 15 seconds (slightly longer since there are 3 contacts)
+    // Auto-remove after 15 seconds
     setTimeout(() => {
       if (feedback.parentNode) feedback.parentNode.removeChild(feedback);
     }, 15000);
